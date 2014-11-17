@@ -1,0 +1,29 @@
+{
+	"name": "boreas",
+	"version": "1.0.0",
+	"description": "A neat CSS parser written in TypeScript.",
+	"dependencies": {
+	},
+	"devDependencies": {
+		"should": ">=4.1.0",
+		"grunt": ">=0.4.5",
+		"grunt-contrib-copy": ">=0.4.1",
+		"grunt-typescript": ">=0.3.7",
+		"typescript": ">=1.0.1",
+		"tslint": ">=1.0.1",
+		"grunt-tslint": ">=1.0.1"
+	},
+	"scripts": {
+		"test": "mocha test/*.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git://github.com/vnmc/cssparser.git"
+	},
+	"keywords": [
+		"css parser"
+	],
+	"author": "Vanamco AG",
+	"readmeFilename": "README.md",
+	"gitHead": "2a0d8a61b472a61e00a2b108a5a22d8b15ad7997"
+}
