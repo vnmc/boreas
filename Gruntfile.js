@@ -34,7 +34,9 @@ module.exports = function(grunt)
 				configuration: grunt.file.readJSON('tslint.json'),
 				rulesDirectory: 'tools/tslint-rules'
 			},
-			files: [ 'src/*.ts' ]
+			base: {
+				src: 'src/*.ts'
+			}
 		}
 	});
 
@@ -58,6 +60,6 @@ module.exports = function(grunt)
 	grunt.registerTask(
 		'default',
 		'Compile source files',
-		[ 'typescript:base', 'tslint' ]
+		[ 'tslint', 'typescript:base' ]
 	);
 };

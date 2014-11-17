@@ -80,6 +80,7 @@
 			"check-type"
 		],
 		"no-function-whitespace": true,
-		"new-line": true
+		"new-line": true,
+		"whitespace-literal": true
 	}
 }
