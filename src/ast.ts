@@ -9,6 +9,29 @@ import Utilities = require('./utilities');
 
 
 // ==================================================================
+// HELPER FUNCTIONS
+// ==================================================================
+
+function setRangeFromChildren(range: T.ISourceRange, children: T.INode[])
+{
+	var len = children.length,
+		firstChildRange: T.ISourceRange,
+		lastChildRange: T.ISourceRange;
+
+	if (len === 0)
+		return;
+
+	firstChildRange = children[0].range;
+	lastChildRange = children[len - 1].range;
+
+	range.startLine = firstChildRange.startLine;
+	range.startColumn = firstChildRange.startColumn;
+	range.endLine = lastChildRange.endLine;
+	range.endColumn = lastChildRange.endColumn;
+}
+
+
+// ==================================================================
 // AST CLASSES
 // ==================================================================
 
@@ -31,10 +54,9 @@ export class SourceRange implements T.ISourceRange
 export class ASTNode implements T.INode
 {
 	range = new SourceRange();
-	prologue = '';
-	epilogue = '';
-
 	parent: T.INode = null;
+	errorTokens: Tokenizer.Token[];
+
 
 	get children(): T.INode[]
 	{
@@ -61,6 +83,27 @@ export class ASTNode implements T.INode
 		return '';
 	}
 
+	get hasErrors(): boolean
+	{
+		return this.errorTokens && this.errorTokens.length > 0;
+	}
+
+	errorTokensToString(): string
+	{
+		var s = '',
+			len: number,
+			i: number;
+
+		if (!this.errorTokens)
+			return '';
+
+		len = this.errorTokens.length;
+		for (var i = 0; i < len; i++)
+			s += this.errorTokens[i].toString();
+
+		return s;
+	}
+
 	/**
 	 * Beautifies this AST subtree.
 	 *
@@ -80,8 +123,10 @@ export class ASTNode implements T.INode
 	 */
 	tabs(level: number): string
 	{
-		var ret = '';
-		for (var i = 0; i < level; i++)
+		var ret = '',
+			i: number;
+
+		for (i = 0; i < level; i++)
 			ret += '\t';
 
 		return ret;
@@ -92,9 +137,12 @@ export class ASTNode implements T.INode
 	 */
 	get root(): T.INode
 	{
-		for (var node: T.INode = this; ; )
+		var node: T.INode,
+			parent: T.INode;
+
+		for (node = this; ; )
 		{
-			var parent = node.parent;
+			parent = node.parent;
 
 			if (parent === null)
 				return node;
@@ -110,7 +158,9 @@ export class ASTNode implements T.INode
 	 */
 	isAncestorOf(node: T.INode): boolean
 	{
-		for (var parent = node.parent; parent; parent = parent.parent)
+		var parent: T.INode;
+
+		for (parent = node.parent; parent; parent = parent.parent)
 			if (this === parent)
 				return true;
 
@@ -119,11 +169,64 @@ export class ASTNode implements T.INode
 }
 
 
-export class ComponentValue extends ASTNode
+export class ASTNodeList<U extends T.INode> extends ASTNode
 {
-	token: Tokenizer.IToken;
+	private _children: U[];
 
-	constructor(token?: Tokenizer.IToken)
+	constructor(children: U[])
+	{
+		var i: number,
+			len: number;
+
+		super();
+
+		this._children = children;
+		if (this._children)
+		{
+			len = this._children.length;
+			for (i = 0; i < len; i++)
+			{
+				this._children[i].parent = this;
+				this[i] = this._children[i];
+			}
+
+			if (len > 0)
+				setRangeFromChildren(this.range, this._children);
+		}
+	}
+
+	get children(): U[]
+	{
+		return this._children;
+	}
+
+	get length(): number
+	{
+		return this._children.length;
+	}
+
+	forEach(it: (elt: U) => void)
+	{
+		var i: number,
+			len: number;
+
+		len = this._children.length;
+		for (i = 0; i < len; i++)
+			it(this._children[i]);
+	}
+}
+
+
+export interface IComponentValue extends T.INode
+{
+}
+
+
+export class ComponentValue extends ASTNode implements IComponentValue
+{
+	token: Tokenizer.Token;
+
+	constructor(token?: Tokenizer.Token)
 	{
 		super();
 
@@ -132,88 +235,28 @@ export class ComponentValue extends ASTNode
 			this.range = token.range;
 	}
 
-	get value()
+	get value(): string
 	{
 		return this.token.src;
 	}
 
-	get type()
+	get type(): Tokenizer.EToken
 	{
 		return this.token.token;
 	}
 
-	toString()
+	toString(): string
 	{
-		return this.prologue + this.value + this.epilogue;
+		return this.hasErrors ? this.errorTokensToString() : this.token.toString();
 	}
 
-	beautify(level: number = 0)
+	beautify(level: number = 0): string
 	{
-		return this.value;
-	}
-}
-
-
-export class BlockComponentValue extends ComponentValue
-{
-	values: ComponentValue[];
-
-	constructor(values: ComponentValue[])
-	{
-		super();
-
-		this.values = values;
-
-		var len = this.values.length;
-		for (var i = 0; i < len; i++)
-			this.values[i].parent = this;
-	}
-
-	get children()
-	{
-		return this.values;
-	}
-
-	valuesToString()
-	{
-		var s = '';
-		var len = this.values.length;
-
-		for (var i = 0; i < len; i++)
-			s += this.values[i].toString();
-
-		return s;
-	}
-
-	toString()
-	{
-		return this.prologue + this.valuesToString() + this.epilogue;
-	}
-
-	beautifyValues(level: number = 0)
-	{
-		var s = '';
-		var len = this.values.length;
-
-		for (var i = 0; i < len; i++)
-		{
-			if (i > 0)
-				s += ' ';
-
-			var value = this.values[i];
-			s += value.prologue.trim() + value.beautify(level) + value.epilogue.trim();
-		}
-
-		return s;
-	}
-
-	beautify(level: number = 0)
-	{
-		return this.prologue.trim() + this.beautifyValues(level) + this.epilogue.trim();
+		return this.token.beautify();
 	}
 }
 
-
+/*
 function createComponentValueList(values: ComponentValue[], parent: ASTNode)
 {
 	var list = new ComponentValueList(values);
@@ -232,56 +275,133 @@ function createComponentValueList(values: ComponentValue[], parent: ASTNode)
 
 	return list;
 }
+*/
 
-export class ComponentValueList extends BlockComponentValue
+export class ComponentValueList extends ASTNodeList<ComponentValue> implements IComponentValue
 {
-	constructor(values: ComponentValue[])
+	constructor(values: IComponentValue[])
 	{
 		super(values);
 	}
 
-	get length()
+	toString(): string
 	{
-		return this.values.length;
+		var s = '',
+			len = this.children.length,
+			i: number;
+
+		if (this.hasErrors)
+			return this.errorTokensToString();
+
+		for (i = 0; i < len; i++)
+			s += this.children[i].toString();
+
+		return s;
 	}
 
-	at(idx: number)
+	beautify(level: number = 0): string
 	{
-		return this.values[idx];
+		var s = '',
+			value: ASTNode,
+			len = this.children.length,
+			i: number;
+
+		for (i = 0; i < len; i++)
+		{
+			if (i > 0)
+				s += ' ';
+
+			value = this.children[i];
+			s += value.beautify(level);
+		}
+
+		return s;
+	}
+}
+
+
+export class BlockComponentValue extends ComponentValueList
+{
+	startToken: Tokenizer.Token;
+	endToken: Tokenizer.Token;
+
+	constructor(startToken: Tokenizer.Token, endToken: Tokenizer.Token, values: IComponentValue[])
+	{
+		super(values);
+
+		this.startToken = startToken;
+		this.endToken = endToken;
+	}
+
+	toString(): string
+	{
+		if (this.hasErrors)
+			return this.errorTokensToString();
+
+		return this.startToken.toString() + super.toString() + this.endToken.toString();
+	}
+
+	beautify(level: number = 0): string
+	{
+		return this.startToken.beautify() + super.beautify(level) + this.endToken.beautify();
 	}
 }
 
 
 export class FunctionComponentValue extends BlockComponentValue
 {
-	name: string;
-
-	constructor(name: string, args: ComponentValue[])
+	constructor(name: Tokenizer.Token, rparen: Tokenizer.Token, args: IComponentValue[])
 	{
-		super(args);
-		this.name = name;
+		super(name, rparen, args);
 	}
 
-	get args()
+	get name(): Tokenizer.Token
 	{
-		return this.values;
+		return this.startToken;
 	}
 
-	toString()
+	get args(): ComponentValue[]
 	{
-		return this.prologue + this.name + '(' + this.valuesToString() + this.epilogue;
+		return this.children;
+	}
+}
+
+
+export class FunctionArgumentValue extends ComponentValueList
+{
+	private separator: Tokenizer.Token;
+
+	constructor(values: ComponentValue[], separator?: Tokenizer.Token)
+	{
+		super(values);
+		this.separator = separator;
 	}
 
-	beautify(level: number = 0)
+	toString(): string
 	{
-		return this.name + '(' + super.beautifyValues(level) + ')';
+		var s = super.toString();
+
+		if (!this.hasErrors && this.separator)
+			s += this.separator.toString();
+
+		return s;
+	}
+
+	beautify(level: number = 0): string
+	{
+		var s = super.beautify(level);
+
+		if (this.separator)
+			s += this.separator.beautify() + ' ';
+
+		return s;
 	}
 }
 
 
 export class ImportantComponentValue extends ComponentValue
 {
-	constructor(token: Tokenizer.IToken)
+	constructor(token: Tokenizer.Token)
 	{
 		super(token);
 	}
@@ -294,37 +414,36 @@ export class AbstractRule extends ASTNode
 }
 
 
-export class RuleList extends ASTNode
+export class RuleList extends ASTNodeList<AbstractRule>
 {
-	rules: AbstractRule[] = [];
+	lbrace: Tokenizer.Token;
+	rbrace: Tokenizer.Token;
 
-	constructor(rules: AbstractRule[])
+	constructor(rules: AbstractRule[], lbrace?: Tokenizer.Token, rbrace?: Tokenizer.Token)
 	{
-		super();
+		super(rules);
 
-		this.rules = rules;
-
-		var len = this.rules.length;
-		for (var i = 0; i < len; i++)
-			this.rules[i].parent = this;
+		this.lbrace = lbrace;
+		this.rbrace = rbrace;
 	}
 
 	insertRule(selectors: string, pos?: number): Rule
 	{
-		var sels = new SelectorList();
-		var style = new DeclarationList();
-		var rule = new Rule(sels, style);
+		var sels = new SelectorList(),
+			style = new DeclarationList(),
+			rule = new Rule(sels, style),
+			prevRule: AbstractRule = null,
+			len = this.children.length,
+			startLine: number,
+			startColumn: number;
 
 		rule.parent = this;
-
-		var prevRule: AbstractRule = null;
-		var len = this.rules.length;
 
 		if (pos === undefined)
 		{
 			if (len > 0)
-				prevRule = this.rules[len - 1];
-			this.rules.push(rule);
+				prevRule = this.children[len - 1];
+			this.children.push(rule);
 		}
 		else
 		{
@@ -334,20 +453,20 @@ export class RuleList extends ASTNode
 				pos = len;
 
 			if (pos > 0)
-				prevRule = this.rules[pos - 1];
+				prevRule = this.children[pos - 1];
 
-			this.rules.splice(pos, 0, rule);
+			this.children.splice(pos, 0, rule);
 		}
 
 		// create the ranges, epilogues and prologues for the child nodes
-		var sl = prevRule ? prevRule.range.endLine : this.range.startLine;
-		var sc = prevRule ? prevRule.range.endColumn : this.range.startColumn;
+		startLine = prevRule ? prevRule.range.endLine : this.range.startLine;
+		startColumn = prevRule ? prevRule.range.endColumn : this.range.startColumn;
 
-		sels.prologue = '\n';
-		sels.range = new SourceRange(sl, sc, sl, sc);
+		// XX sels.prologue = '\n';
+		sels.range = new SourceRange(startLine, startColumn, startLine, startColumn);
 
-		style.prologue = '{\n';
-		style.epilogue = '}\n';
+		// XX style.prologue = '{\n';
+		// XX style.epilogue = '}\n';
 		style.range = new SourceRange(sels.range.endLine, sels.range.endColumn, sels.range.endLine + 2, 0);
 
 		rule.range = new SourceRange(sels.range.startLine, sels.range.startColumn, style.range.endLine, style.range.endColumn);
@@ -360,29 +479,17 @@ export class RuleList extends ASTNode
 		return rule;
 	}
 
-	get length()
-	{
-		return this.rules.length;
-	}
 
-	at(idx: number)
+	toJSON(): any
 	{
-		return this.rules[idx];
-	}
+		var ret = [],
+			len = this.children.length,
+			i: number,
+			r: any;
 
-	get children()
-	{
-		return this.rules;
-	}
-
-	toJSON()
-	{
-		var ret = [];
-		var len = this.rules.length;
-
-		for (var i = 0; i < len; i++)
+		for (i = 0; i < len; i++)
 		{
-			var r = this.rules[i].toJSON();
+			r = this.children[i].toJSON();
 			if (r)
 				ret.push(r);
 		}
@@ -390,40 +497,85 @@ export class RuleList extends ASTNode
 		return ret;
 	}
 
-	toString()
+	toString(): string
 	{
-		var ret = this.prologue;
-		var len = this.rules.length;
+		var ret = '',
+			len = this.children.length,
+			i: number;
 
-		for (var i = 0; i < len; i++)
-			ret += this.rules[i].toString();
+		if (this.hasErrors)
+			return this.errorTokensToString();
 
-		return ret + this.epilogue;
+		if (this.lbrace)
+			ret += this.lbrace.toString();
+
+		for (i = 0; i < len; i++)
+			ret += this.children[i].toString();
+
+		if (this.rbrace)
+			ret += this.rbrace.toString();
+
+		return ret;
 	}
 
-	beautify(level: number = 0)
+	beautify(level: number = 0): string
 	{
-		var ret = '';
-		var len = this.rules.length;
+		var ret = '',
+			len = this.children.length,
+			i: number;
 
-		for (var i = 0; i < len; i++)
-			ret += this.rules[i].beautify(level);
+		if (this.lbrace)
+			ret += this.lbrace.beautify();
+
+		len = this.children.length;
+
+		for (i = 0; i < len; i++)
+			ret += this.children[i].beautify(level);
+
+		if (this.rbrace)
+			ret += this.rbrace.beautify();
 
 		return ret;
 	}
 }
 
 
-export class StyleSheet extends RuleList
+export class StyleSheet extends ASTNode
 {
+	rules: RuleList;
+
 	constructor(ruleList: RuleList)
 	{
-		super(ruleList.rules);
+		super();
+
+		this.rules = ruleList;
+
+		this.range = new SourceRange(
+			ruleList.range.startLine, ruleList.range.startColumn, ruleList.range.endLine, ruleList.range.endColumn
+		);
 	}
 
-	beautify(level: number = 0)
+	get children(): T.INode[]
 	{
-		return super.beautify(level).trim();
+		return [ this.rules ];
+	}
+
+	toJSON(): any
+	{
+		return this.rules.toJSON();
+	}
+
+	toString(): string
+	{
+		if (this.hasErrors)
+			return this.errorTokensToString();
+
+		return this.rules.toString();
+	}
+
+	beautify(level: number = 0): string
+	{
+		return this.rules.beautify(level).trim();
 	}
 }
 
@@ -431,86 +583,99 @@ export class StyleSheet extends RuleList
 export class Rule extends AbstractRule
 {
 	selectors: SelectorList;
-	style: DeclarationList;
+	declarations: DeclarationList;
 
-	constructor(selectors: SelectorList, style: DeclarationList)
+	constructor(selectors?: SelectorList, declarations?: DeclarationList)
 	{
 		super();
 
 		this.selectors = selectors;
-		this.style = style;
+		this.declarations = declarations;
 
-		this.selectors.parent = this;
-		if (this.style)
-			this.style.parent = this;
+		if (this.selectors)
+			this.selectors.parent = this;
+		if (this.declarations)
+			this.declarations.parent = this;
 	}
 
-	get children()
+	get children(): T.INode[]
 	{
-		var children: T.INode[] = [ this.selectors ];
-		if (this.style)
-			children.push(this.style);
+		var children: T.INode[] = [];
+
+		if (this.selectors)
+			children.push(this.selectors);
+		if (this.declarations)
+			children.push(this.declarations);
+
 		return children;
 	}
 
-	toJSON()
+	toJSON(): any
 	{
 		return {
-			selectorList: this.selectors.toJSON(),
-			style: this.style && this.style.toJSON()
+			selectorList: this.selectors && this.selectors.toJSON(),
+			style: this.declarations && this.declarations.toJSON()
 		};
 	}
 
-	toString()
+	toString(): string
 	{
-		return this.prologue + this.selectors.toString() + (this.style ? this.style.toString() : '') + this.epilogue;
+		var s = '';
+
+		if (this.errorTokens && this.errorTokens.length > 0)
+			return this.errorTokensToString();
+
+		if (this.selectors)
+			s += this.selectors.toString();
+		if (this.declarations)
+			s += this.declarations.toString();
+
+		return s;
 	}
 
-	beautify(level: number = 0)
+	beautify(level: number = 0): string
 	{
-		return '\n' + this.selectors.beautify(level) + ' {\n' + (this.style ? this.style.beautify(level) : '') + this.tabs(level) + '}\n';
+		var s = '\n';
+
+		if (this.selectors)
+			s += this.selectors.beautify(level) + ' {\n';
+		if (this.declarations)
+			s += this.declarations.beautify(level);
+
+		return s + this.tabs(level) + '}\n';
 	}
 }
 
 
-export class SelectorList extends ASTNode
+export class SelectorList extends ASTNodeList<Selector>
 {
-	selectors: Selector[] = [];
-
 	constructor(selectors?: Selector[])
 	{
-		super();
-
-		if (selectors !== undefined)
-			this.selectors = selectors;
-
-		var len = this.selectors.length;
-		for (var i = 0; i < len; i++)
-			this.selectors[i].parent = this;
-	}
-
-	get children()
-	{
-		return this.selectors;
+		super(selectors || []);
 	}
 
 	set selectorText(selectors: string)
 	{
-		var root = this.root;
-		var sl = this.range.startLine;
-		var sc = this.range.startColumn;
+		var root = this.root,
+			sl = this.range.startLine,
+			sc = this.range.startColumn,
+			astSelectors: Selector[],
+			len: number,
+			i: number,
+			sel: Selector,
+			lastSel: Selector;
 
 		// remove the old selectors and zero the range
-		this.selectors.splice(0, this.selectors.length);
+		this.children.splice(0, this.children.length);
 		Utilities.zeroRange(root, this);
 
-		var astSelectors: Selector[] = new Parser.Parser(selectors).parseSelectorList().selectors;
-		var len = astSelectors.length;
+		astSelectors = new Parser.Parser(selectors).parseSelectorList().children;
+		len = astSelectors.length;
 
 		// add the selectors to this selector list
-		for (var i = 0; i < len; i++)
+		for (i = 0; i < len; i++)
 		{
-			var sel = astSelectors[i];
+			sel = astSelectors[i];
 
 			sel.parent = this;
 
@@ -520,13 +685,13 @@ export class SelectorList extends ASTNode
 			if (sel.range.startLine === sel.range.endLine)
 				sel.range.endColumn += sc;
 
-			this.selectors.push(sel);
+			this.children.push(sel);
 		}
 
 		// adjust the ranges
 		if (len > 0)
 		{
-			var lastSel = astSelectors[len - 1];
+			lastSel = astSelectors[len - 1];
 			this.range.endLine = lastSel.range.endLine;
 			this.range.endColumn = lastSel.range.endColumn;
 			Utilities.insertRangeFromNode(root, this);
@@ -535,7 +700,14 @@ export class SelectorList extends ASTNode
 
 	insertSelector(selector: any, pos?: number): Selector
 	{
-		var sel: Selector = null;
+		var sel: Selector = null,
+			root = this.root,
+			children = this.children,
+			len = children.length,
+			prevSel: Selector = null,
+			nextSel: Selector = null,
+			selText: string,
+			startIndices: number[];
 
 		if (typeof selector === 'string')
 			sel = new Selector(selector);
@@ -546,16 +718,11 @@ export class SelectorList extends ASTNode
 
 		sel.parent = this;
 
-		var root = this.root;
-		var len = this.selectors.length;
-		var prevSel: Selector = null;
-		var nextSel: Selector = null;
-
 		if (pos === undefined)
 		{
 			if (len > 0)
-				prevSel = this.selectors[len - 1];
-			this.selectors.push(sel);
+				prevSel = children[len - 1];
+			children.push(sel);
 		}
 		else
 		{
@@ -565,20 +732,20 @@ export class SelectorList extends ASTNode
 				pos = len;
 
 			if (pos > 0)
-				prevSel = this.selectors[pos - 1];
+				prevSel = children[pos - 1];
 			if (pos < len - 1)
-				nextSel = this.selectors[pos];
+				nextSel = children[pos];
 
-			this.selectors.splice(pos, 0, sel);
+			children.splice(pos, 0, sel);
 		}
 
-		sel.prologue = prevSel ? prevSel.prologue : '';
-		sel.epilogue = prevSel ? prevSel.epilogue : (nextSel ? ',' : '');
+		// XX sel.prologue = prevSel ? prevSel.prologue : '';
+		// XX sel.epilogue = prevSel ? prevSel.epilogue : (nextSel ? ',' : '');
 
 		// insert a comma
 		if (prevSel && !nextSel)
 		{
-			prevSel.epilogue = ',' + prevSel.epilogue;
+			// XX prevSel.epilogue = ',' + prevSel.epilogue;
 			Utilities.insertRangeFromNode(
 				root,
 				prevSel,
@@ -586,8 +753,9 @@ export class SelectorList extends ASTNode
 			);
 		}
 
-		var selText = sel.prologue + sel.text + sel.epilogue;
-		var startIndices = Utilities.getLineStartIndices(selText);
+		// XX var selText = sel.prologue + sel.text + sel.epilogue;
+		selText = sel.text;
+		startIndices = Utilities.getLineStartIndices(selText);
 
 		sel.range.startLine = prevSel ? prevSel.range.endLine : this.range.startLine;
 		sel.range.startColumn = prevSel ? prevSel.range.endColumn : this.range.startColumn;
@@ -601,13 +769,14 @@ export class SelectorList extends ASTNode
 		return sel;
 	}
 
-	toJSON()
+	toJSON(): any
 	{
-		var sels = [];
-		var len = this.selectors.length;
+		var sels = [],
+			len = this.children.length,
+			i: number;
 
-		for (var i = 0; i < len; i++)
-			sels.push(this.selectors[i].toJSON());
+		for (i = 0; i < len; i++)
+			sels.push(this.children[i].toJSON());
 
 		return {
 			selectors: sels,
@@ -615,27 +784,32 @@ export class SelectorList extends ASTNode
 		};
 	}
 
-	toString()
+	toString(): string
 	{
-		var text = this.prologue;
-		var len = this.selectors.length;
+		var text = '',
+			len = this.children.length,
+			i: number;
 
-		for (var i = 0; i < len; i++)
-			text += this.selectors[i].toString();
+		if (this.hasErrors)
+			return this.errorTokensToString();
 
-		return text + this.epilogue;
+		for (i = 0; i < len; i++)
+			text += this.children[i].toString();
+
+		return text;
 	}
 
-	beautify(level: number = 0)
+	beautify(level: number = 0): string
 	{
-		var ret = this.tabs(level);
-		var len = this.selectors.length;
+		var ret = this.tabs(level),
+			len = this.children.length,
+			i: number;
 
-		for (var i = 0; i < len; i++)
+		for (i = 0; i < len; i++)
 		{
 			if (i > 0)
 				ret += ', ';
-			ret += this.selectors[i].beautify(level);
+			ret += this.children[i].beautify(level);
 		}
 
 		return ret;
@@ -645,82 +819,99 @@ export class SelectorList extends ASTNode
 
 export class Selector extends ComponentValueList
 {
-	constructor(values: ComponentValue[])
+	private _text: string = null;
+	private separator: Tokenizer.Token;
+
+	constructor(values: ComponentValue[], separator?: Tokenizer.Token)
 	{
 		super(values);
+		this.separator = separator;
 	}
 
-	get text()
+	get text(): string
 	{
-		return this.beautify();
+		if (this._text === null)
+			this._text = this.toString();
+		return this._text;
 	}
 
 	set text(newText: string)
 	{
+		var selector: Selector,
+			children: ASTNode[];
+
 		if (this.text === newText)
 			return;
 
-		var selector = new Parser.Parser(newText).parseSelector();
+		this._text = null;
+
+		selector = new Parser.Parser(newText).parseSelector();
 		Utilities.offsetRange(selector, this.range.startLine, this.range.startColumn);
 
 		Utilities.updateNodeRange(this.root, this, selector.range);
-		this.values = selector.values;
+
+		children = this.children;
+		children.splice.apply(children, (<any> [ 0, this.children.length ]).concat(selector.children));
 	}
 
-	toJSON()
+	toJSON(): any
 	{
 		return {
 			value: this.text,
 			range: this.range
 		};
 	}
+
+	toString(): string
+	{
+		var s = super.toString();
+
+		if (!this.hasErrors && this.separator)
+			s += this.separator.toString();
+
+		return s;
+	}
+
+	beautify(level: number = 0): string
+	{
+		var s = super.beautify(level);
+
+		if (this.separator)
+			s += this.separator.beautify() + ' ';
+
+		return s;
+	}
 }
 
 
-export class DeclarationList extends ASTNode
+export class DeclarationList extends ASTNodeList<Declaration>
 {
-	declarations: Declaration[] = [];
+	lbrace: Tokenizer.Token;
+	rbrace: Tokenizer.Token;
 
-	constructor(declarations?: Declaration[])
+	constructor(declarations?: Declaration[], lbrace?: Tokenizer.Token, rbrace?: Tokenizer.Token)
 	{
-		super();
+		super(declarations || []);
 
-		if (declarations !== undefined)
-			this.declarations = declarations;
-
-		var len = this.declarations.length;
-		for (var i = 0; i < len; i++)
-			this.declarations[i].parent = this;
-	}
-
-	get length()
-	{
-		return this.declarations.length;
-	}
-
-	at(idx: number)
-	{
-		return this.declarations[idx];
-	}
-
-	get children()
-	{
-		return this.declarations;
+		this.lbrace = lbrace;
+		this.rbrace = rbrace;
 	}
 
 	insertDeclaration(declaration: Declaration, pos?: number): Declaration
 	{
 		declaration.parent = this;
 
-		var len = this.declarations.length;
-		var prevProp: Declaration = null;
-		var nextProp: Declaration = null;
+		var len = this.children.length,
+			prevProp: Declaration = null,
+			nextProp: Declaration = null,
+			propText: string,
+			startIndices: number[];
 
 		if (pos === undefined)
 		{
 			if (len > 0)
-				prevProp = this.declarations[len - 1];
-			this.declarations.push(declaration);
+				prevProp = this.children[len - 1];
+			this.children.push(declaration);
 		}
 		else
 		{
@@ -730,18 +921,19 @@ export class DeclarationList extends ASTNode
 				pos = len;
 
 			if (pos > 0)
-				prevProp = this.declarations[pos - 1];
+				prevProp = this.children[pos - 1];
 			if (pos < len - 1)
-				nextProp = this.declarations[pos];
+				nextProp = this.children[pos];
 
-			this.declarations.splice(pos, 0, declaration);
+			this.children.splice(pos, 0, declaration);
 		}
 
-		declaration.prologue = prevProp ? prevProp.prologue : (nextProp ? nextProp.prologue : '');
-		declaration.epilogue = prevProp ? prevProp.epilogue : (nextProp ? nextProp.epilogue : ';');
+		// XX declaration.prologue = prevProp ? prevProp.prologue : (nextProp ? nextProp.prologue : '');
+		// XX declaration.epilogue = prevProp ? prevProp.epilogue : (nextProp ? nextProp.epilogue : ';');
 
-		var propText = declaration.prologue + declaration.name + ':' + declaration.value.toString() + declaration.epilogue;
-		var startIndices = Utilities.getLineStartIndices(propText);
+		// XX var propText = declaration.prologue + declaration.name + ':' + declaration.value.toString() + declaration.epilogue;
+		propText = declaration.name + ':' + declaration.value.toString();
+		startIndices = Utilities.getLineStartIndices(propText);
 
 		declaration.range.startLine = prevProp ? prevProp.range.endLine : this.range.startLine;
 		declaration.range.startColumn = prevProp ? prevProp.range.endColumn : this.range.startColumn;
@@ -769,11 +961,12 @@ export class DeclarationList extends ASTNode
 
 	toJSON()
 	{
-		var props = [];
-		var len = this.declarations.length;
+		var props = [],
+			len = this.children.length,
+			i: number;
 
-		for (var i = 0; i < len; i++)
-			props.push(this.declarations[i].toJSON());
+		for (i = 0; i < len; i++)
+			props.push(this.children[i].toJSON());
 
 		return {
 			cssProperties: props,
@@ -782,29 +975,41 @@ export class DeclarationList extends ASTNode
 		};
 	}
 
-	toString()
+	toString(): string
 	{
-		return this.prologue + this.propertiesToString() + this.epilogue;
-	}
+		var ret = '',
+			len = this.children.length,
+			i: number;
 
-	propertiesToString(): string
-	{
-		var ret = '';
-		var len = this.declarations.length;
+		if (this.hasErrors)
+			return this.errorTokensToString();
 
-		for (var i = 0; i < len; i++)
-			ret += this.declarations[i].toString();
+		if (this.lbrace)
+			ret += this.lbrace.toString();
+
+		for (i = 0; i < len; i++)
+			ret += this.children[i].toString();
+
+		if (this.rbrace)
+			ret += this.rbrace.toString();
 
 		return ret;
 	}
 
-	beautify(level: number = 0)
+	beautify(level: number = 0): string
 	{
-		var ret = '';
-		var len = this.declarations.length;
+		var ret = '',
+			len = this.children.length,
+			i: number;
 
-		for (var i = 0; i < len; i++)
-			ret += this.declarations[i].beautify(level + 1) + '\n';
+		if (this.lbrace)
+			ret += this.lbrace.beautify();
+
+		for (i = 0; i < len; i++)
+			ret += this.children[i].beautify(level + 1) + '\n';
+
+		if (this.rbrace)
+			ret += this.rbrace.beautify();
 
 		return ret;
 	}
@@ -813,23 +1018,28 @@ export class DeclarationList extends ASTNode
 
 export class Declaration extends ASTNode
 {
+	name: Tokenizer.Token;
+	colon: Tokenizer.Token;
 	value: DeclarationValue;
-	private _name: string;
+	semicolon: Tokenizer.Token;
 
 	// the prologue/epilogue will contain comment strings
 	private _disabled: boolean;
 
 
-	constructor(name: string, value: DeclarationValue, disabled?: boolean)
+	constructor(name: Tokenizer.Token, colon: Tokenizer.Token, value: DeclarationValue, semicolon: Tokenizer.Token, disabled?: boolean)
 	{
 		super();
 
-		this._name = name ? name.toLowerCase() : name;
+		this.name = name;
+		this.colon = colon;
 		this.value = value;
+		this.semicolon = semicolon;
 		this._disabled = !!disabled;
 	}
 
-	get name()
+	/*
+	get name(): string
 	{
 		return this._name;
 	}
@@ -843,6 +1053,7 @@ export class Declaration extends ASTNode
 		Utilities.updateNodeRange(this.root, this, Utilities.getRangeDifference(this._name, newNameLc, this.range));
 		this._name = newNameLc;
 	}
+	*/
 
 	get disabled(): boolean
 	{
@@ -856,22 +1067,25 @@ export class Declaration extends ASTNode
 
 		this._disabled = isDisabled;
 
-		var oldPrologue = this.prologue;
-		var oldEpilogue = this.epilogue;
+		// XX var oldPrologue = this.prologue;
+		// XX var oldEpilogue = this.epilogue;
 
+/*
 		if (isDisabled)
 		{
 			this.prologue = this.prologue + '/* ';
-			this.epilogue = this.epilogue + ' */';
+			this.epilogue = this.epilogue + ' * /';
 		}
 		else
 		{
 			this.prologue.replace(/\/\*\s*$/, '');
 			this.epilogue.replace(/\s*\*\/$/, '');
 		}
+*/
 
-		Utilities.updateNodeRange(this.root, this, Utilities.getRangeDifference(oldPrologue, this.prologue, this.range));
-		Utilities.updateNodeRange(this.root, this, Utilities.getRangeDifference(oldEpilogue, this.epilogue, this.range));
+		// TODO
+		// XX Utilities.updateNodeRange(this.root, this, Utilities.getRangeDifference(oldPrologue, this.prologue, this.range));
+		// XX Utilities.updateNodeRange(this.root, this, Utilities.getRangeDifference(oldEpilogue, this.epilogue, this.range));
 	}
 
 	get text(): string
@@ -881,19 +1095,17 @@ export class Declaration extends ASTNode
 
 	set text(newText: string)
 	{
-		var declaration: Declaration = new Parser.Parser(newText).parseDeclaration();
+		var declaration: Declaration = new Parser.Parser(newText).parseDeclaration(),
+			oldStartLine = this.range.startLine,
+			oldStartColumn = this.range.startColumn,
+			root = this.root;
 
-		this._name = declaration.name;
+		this.name = declaration.name;
 		this.value = declaration.value;
 		this._disabled = declaration.disabled;
 
-		this.prologue = declaration.prologue;
-		this.epilogue = declaration.epilogue;
-
-		var oldStartLine = this.range.startLine;
-		var oldStartColumn = this.range.startColumn;
-
-		var root = this.root;
+		// XX this.prologue = declaration.prologue;
+		// XX this.epilogue = declaration.epilogue;
 
 		Utilities.zeroRange(root, this);
 
@@ -907,95 +1119,113 @@ export class Declaration extends ASTNode
 		Utilities.insertRangeFromNode(root, this);
 	}
 
-	toJSON()
+	toJSON(): any
 	{
 		return {
-			name: this._name,
-			value: this.value.value,
-			important: this.value.important,
+			name: (this.name && this.name.value) || '',
+			value: (this.value && this.value.text) || '',
+			important: (this.value && this.value.important) || false,
 			disabled: this._disabled,
 			text: this.toString().trim(),
 			range: this.range
 		};
 	}
 
-	toString()
+	toString(): string
 	{
-		return this.prologue + this._name + ':' + this.value.toString() + this.epilogue;
+		if (this.hasErrors)
+			return this.errorTokensToString();
+
+		return this.name.toString() + this.colon.toString() + this.value.toString() + this.semicolon.toString();
 	}
 
-	beautify(level: number = 0)
+	beautify(level: number = 0): string
 	{
 		return this.tabs(level) +
 			(this._disabled ? '/* ' : '') +
-			this._name + ': ' + this.value.beautify(level) +
+			this.name.src.trim() + ': ' + this.value.beautify(level) +
 			(this._disabled ? '; */' : ';');
 	}
 }
 
 
-export class DeclarationValue extends BlockComponentValue
+export class DeclarationValue extends ComponentValueList
 {
-	constructor(values: ComponentValueList)
-	{
-		super(values.values);
+	private _text: string = null;
 
-		this.range = values.range;
-		this.prologue = values.prologue;
-		this.epilogue = values.epilogue;
+	constructor(values: ComponentValue[])
+	{
+		super(values);
+
+		// this.range = new SourceRange(
+		// 	values.range.startLine, values.range.startColumn, values.range.endLine, values.range.endColumn
+		// );
+
+		// XX this.prologue = values.prologue;
+		// XX this.epilogue = values.epilogue;
 	}
 
-	get value(): string
+	get text(): string
 	{
-		return this.beautify();
+		if (this._text === null)
+			this._text = this.toString();
+		return this._text;
 	}
 
-	set value(value: string)
+	set text(value: string)
 	{
-		if (this.beautify() === value)
+		var declarationValue: DeclarationValue,
+			children: ASTNode[];
+
+		if (this.text === value)
 			return;
 
-		var declarationValue = new Parser.Parser(value).parseDeclarationValue();
+		this._text = null;
+
+		declarationValue = new Parser.Parser(value).parseDeclarationValue();
 		Utilities.offsetRange(declarationValue, this.range.startLine, this.range.startColumn);
 
 		Utilities.updateNodeRange(this.root, this, declarationValue.range);
-		this.values = declarationValue.values;
+
+		children = this.children;
+		children.splice.apply(children, (<any> [ 0, children.length ]).concat(declarationValue.children));
 	}
 
-	get pureValue()
+	get important(): boolean
 	{
-		return this.toString(true);
+		var children = this.children;
+		return children[children.length - 1] instanceof ImportantComponentValue;
 	}
 
-	get important()
+	toString(excludeImportant?: boolean): string
 	{
-		return this.values[this.values.length - 1] instanceof ImportantComponentValue;
-	}
+		var s = '',
+			len = this.children.length,
+			i: number,
+			value: ASTNode;
 
-	toString(excludeImportant?: boolean)
-	{
-		var s = '';
-		var len = this.values.length;
+		if (this.hasErrors)
+			return this.errorTokensToString();
 
-		for (var i = 0; i < len; i++)
+		for (i = 0; i < len; i++)
 		{
-			var value = this.values[i];
+			value = this.children[i];
 			if (!(excludeImportant && (value instanceof ImportantComponentValue)))
 				s += value.toString();
 		}
 
-		return this.prologue + s + this.epilogue;
+		return s;
 	}
 }
 
 
 export class AtRule extends AbstractRule
 {
-	atKeyword: string;
+	atKeyword: Tokenizer.Token;
 	prelude: ComponentValueList;
 	private _block: ASTNode;
 
-	constructor(atKeyword: string, prelude?: ComponentValueList, block?: any)
+	constructor(atKeyword: Tokenizer.Token, prelude?: ComponentValueList, block?: any)
 	{
 		super();
 
@@ -1009,7 +1239,7 @@ export class AtRule extends AbstractRule
 			this._block.parent = this;
 	}
 
-	get children()
+	get children(): T.INode[]
 	{
 		var children = [];
 
@@ -1031,77 +1261,111 @@ export class AtRule extends AbstractRule
 		return this._block instanceof RuleList ? <RuleList> this._block : undefined;
 	}
 
-	toString()
+	toString(): string
 	{
-		return this.prologue + this.atKeyword +
-			(this.prelude ? this.prelude.toString() : '') +
-			(this._block ? this._block.toString() : '') +
-			this.epilogue;
+		var s: string;
+
+		if (this.hasErrors)
+			return this.errorTokensToString();
+
+		s = this.atKeyword.toString();
+		if (this.prelude)
+			s += this.prelude.toString();
+		if (this._block)
+			s += this._block.toString();
+		return s;
 	}
 
-	beautify(level: number = 0)
+	beautify(level: number = 0): string
 	{
 		if (this._block instanceof DeclarationList)
 		{
-			return this.tabs(level) + this.atKeyword.toLowerCase() +
+			return this.tabs(level) + this.atKeyword.src.toLowerCase() +
 				(this.prelude ? ' ' + this.prelude.beautify(level) : '') + '\n' +
 				this.declarations.beautify(level);
 		}
 
 		if (this._block)
 		{
-			return '\n' + this.tabs(level) + this.atKeyword.toLowerCase() +
+			return '\n' + this.tabs(level) + this.atKeyword.src.toLowerCase() +
 				(this.prelude ? ' ' + this.prelude.beautify(level) : '') + ' {' +
 				this.rules.beautify(level + 1) +
 				this.tabs(level) + '}';
 		}
 
-		return this.tabs(level) + this.atKeyword.toLowerCase() +
+		return this.tabs(level) + this.atKeyword.src.toLowerCase() +
 			(this.prelude ? ' ' + this.prelude.beautify(level) : '') + ';\n';
 	}
 }
 
 export class AtCharset extends AtRule
 {
-	charset: string;
+	private _charset: string = null;
 
-	constructor(atKeyword: string, prelude: ComponentValueList)
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList)
 	{
 		super(atKeyword, prelude);
+	}
 
-		var first = prelude.at(0);
-		this.charset = first ? first.value : '';
+	get charset(): string
+	{
+		var first: ComponentValue;
+
+		if (this._charset === null)
+		{
+			first = this.prelude[0];
+			this._charset = first ? first.value : '';
+		}
+
+		return this._charset;
 	}
 }
 
 
 export class AtCustomMedia extends AtRule
 {
-	extensionName: string;
-	mediaList: ComponentValueList;
+	private _extensionName: string = null;
+	private _media: ComponentValueList = null;
 
-	constructor(atKeyword: string, prelude: ComponentValueList)
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList)
 	{
 		super(atKeyword, prelude);
+	}
 
-		var first = prelude.at(0);
-		this.extensionName = first ? first.value : '';
+	get extensionName(): string
+	{
+		var first: ComponentValue;
 
-		this.mediaList = createComponentValueList(prelude.values.slice(1), this);
+		if (this._extensionName === null)
+		{
+			first = this.prelude[0];
+			this._extensionName = first ? first.value : '';
+		}
+
+		return this._extensionName;
+	}
+
+	get media(): ComponentValueList
+	{
+		if (this._media === null)
+		{
+			this._media = new ComponentValueList(this.prelude.children.slice(1));
+			this._media.parent = this;
+		}
+
+		return this._media;
 	}
 }
 
 
 export class AtDocument extends AtRule
 {
-	url: string;
-	urlPrefix: string;
-	domain: string;
-	regexp: string;
+	private _url: string;
+	private _urlPrefix: string;
+	private _domain: string;
+	private _regexp: string;
 
-	rules: RuleList;
-
-	constructor(atKeyword: string, prelude: ComponentValueList, block: any)
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, block: any)
 	{
 		super(atKeyword, prelude, block);
 
@@ -1111,25 +1375,50 @@ export class AtDocument extends AtRule
 			return args.length > 0 ? args[0].toString() : '';
 		};
 
-		var len = prelude.length;
-		for (var i = 0; i < len; i++)
+		var len = prelude.length,
+			i: number,
+			val: IComponentValue,
+			name: string;
+
+		for (i = 0; i < len; i++)
 		{
-			var val = prelude.at(i);
+			val = prelude[i];
 			if (val instanceof FunctionComponentValue)
 			{
-				var name = (<FunctionComponentValue> val).name.toLowerCase();
+				name = (<FunctionComponentValue> val).name.value.toLowerCase();
 
 				if (name === 'url')
-					this.url = getArg(val);
+					this._url = getArg(val);
 				else if (name === 'url-prefix')
-					this.urlPrefix = getArg(val);
+					this._urlPrefix = getArg(val);
 				else if (name === 'domain')
-					this.domain = getArg(val);
+					this._domain = getArg(val);
 				else if (name === 'regexp')
-					this.regexp = getArg(val);
+					this._regexp = getArg(val);
 			}
 		}
 	}
+
+	get url(): string
+	{
+		return this._url;
+	}
+
+	get urlPrefix(): string
+	{
+		return this._urlPrefix;
+	}
+
+	get domain(): string
+	{
+		return this._domain;
+	}
+
+	get regexp(): string
+	{
+		return this._regexp;
+	}
+
 
 	/*
 	 static parseUrlSpecifier(specifier: string)
@@ -1152,7 +1441,7 @@ export class AtDocument extends AtRule
 
 export class AtFontFace extends AtRule
 {
-	constructor(atKeyword: string, prelude: ComponentValueList, declarations: DeclarationList)
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, declarations: DeclarationList)
 	{
 		super(atKeyword, prelude, declarations);
 	}
@@ -1161,7 +1450,7 @@ export class AtFontFace extends AtRule
 
 export class AtHost extends AtRule
 {
-	constructor(atKeyword: string, prelude: ComponentValueList, rules: RuleList)
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, rules: RuleList)
 	{
 		super(atKeyword, prelude, rules);
 	}
@@ -1170,17 +1459,36 @@ export class AtHost extends AtRule
 
 export class AtImport extends AtRule
 {
-	url: string;
-	media: ComponentValueList;
+	private _url: string = null;
+	private _media: ComponentValueList = null;
 
-	constructor(atKeyword: string, prelude: ComponentValueList)
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList)
 	{
 		super(atKeyword, prelude);
+	}
 
-		var first = prelude.at(0);
-		this.url = first ? (first.token.value || first.value) : '';
+	get url(): string
+	{
+		var first: ComponentValue;
 
-		this.media = createComponentValueList(prelude.values.slice(1), this);
+		if (this._url === null)
+		{
+			first = this.prelude[0];
+			this._url = first ? (first.token.value || first.value) : '';
+		}
+
+		return this._url;
+	}
+
+	get media(): ComponentValueList
+	{
+		if (this._media === null)
+		{
+			this._media = new ComponentValueList(this.prelude.children.slice(1));
+			this._media.parent = this;
+		}
+
+		return this._media;
 	}
 
 	/*
@@ -1202,21 +1510,31 @@ export class AtImport extends AtRule
 
 export class AtKeyframes extends AtRule
 {
-	animationName: string;
+	private _animationName: string;
 
-	constructor(atKeyword: string, prelude: ComponentValueList, rules: RuleList)
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, rules: RuleList)
 	{
 		super(atKeyword, prelude, rules);
+	}
 
-		var first = prelude.at(0);
-		this.animationName = first ? first.value : '';
+	get animationName(): string
+	{
+		var first: ComponentValue;
+
+		if (this._animationName === null)
+		{
+			first = this.prelude[0];
+			this._animationName = first ? first.value : '';
+		}
+
+		return this._animationName;
 	}
 }
 
 
 export class AtMedia extends AtRule
 {
-	constructor(atKeyword: string, media: ComponentValueList, rules: RuleList)
+	constructor(atKeyword: Tokenizer.Token, media: ComponentValueList, rules: RuleList)
 	{
 		super(atKeyword, media, rules);
 	}
@@ -1225,23 +1543,38 @@ export class AtMedia extends AtRule
 
 export class AtNamespace extends AtRule
 {
-	url: string;
-	prefix: string;
+	private _url: string;
+	private _prefix: string;
 
-	constructor(atKeyword: string, prelude: ComponentValueList)
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList)
 	{
+		var first: ComponentValue,
+			second: ComponentValue;
+
 		super(atKeyword, prelude);
 
-		this.url = '';
-		this.prefix = '';
+		this._url = '';
+		this._prefix = '';
 
+		first = prelude[0];
 		if (prelude.length === 1)
-			this.url = prelude.at(0).token.value || prelude.at(0).value;
+			this._url = first.token.value || first.value;
 		else if (prelude.length > 1)
 		{
-			this.prefix = prelude.at(0).value;
-			this.url = prelude.at(1).token.value || prelude.at(1).value;
+			this._prefix = first.value;
+			second = prelude[1];
+			this._url = second.token.value || second.value;
 		}
+	}
+
+	get url(): string
+	{
+		return this._url;
+	}
+
+	get prefix(): string
+	{
+		return this._prefix;
 	}
 
 	/*
@@ -1262,7 +1595,7 @@ export class AtNamespace extends AtRule
 
 export class AtPage extends AtRule
 {
-	constructor(atKeyword: string, prelude: ComponentValueList, declarations: DeclarationList)
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, declarations: DeclarationList)
 	{
 		super(atKeyword, prelude, declarations);
 	}
@@ -1271,7 +1604,7 @@ export class AtPage extends AtRule
 
 export class AtSupports extends AtRule
 {
-	constructor(atKeyword: string, supports: ComponentValueList, rules: RuleList)
+	constructor(atKeyword: Tokenizer.Token, supports: ComponentValueList, rules: RuleList)
 	{
 		super(atKeyword, supports, rules);
 	}

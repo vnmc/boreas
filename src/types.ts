@@ -1,3 +1,5 @@
+import Tokenizer = require('./tokenizer');
+
 // ==================================================================
 // TYPE DECLARATIONS
 // ==================================================================
@@ -5,11 +7,10 @@
 export interface INode
 {
 	range: ISourceRange;
-	prologue: string;
-	epilogue: string;
-
 	parent: INode;
 	children: INode[];
+	errorTokens?: Tokenizer.Token[];
+
 	isAncestorOf: (node: INode) => boolean;
 
 	toJSON: () => any;

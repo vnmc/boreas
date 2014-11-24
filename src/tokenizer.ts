@@ -96,16 +96,75 @@ enum EChar
 	TILDA = 126
 }
 
-export interface IToken
+
+export class Token
 {
 	token: number;
 	src: string;
 	value: any;
-	unit?: string;
-	type?: string;
-	start?: number;
-	end?: number;
+	unit: string;
+	type: string;
+	start: number;
+	end: number;
 	range: T.ISourceRange;
+	leadingTrivia: Token[];
+	trailingTrivia: Token[];
+
+	constructor(token: number, range: T.ISourceRange, src?: string, value?: any, unit?: string, type?: string, start?: number, end?: number)
+	{
+		this.token = token;
+		this.range = range;
+		this.src = src;
+		this.value = value || this.src;
+
+		if (unit !== undefined)
+			this.unit = unit;
+
+		if (type !== undefined)
+			this.type = type;
+
+		if (start !== undefined)
+			this.start = start;
+
+		if (end !== undefined)
+			this.end = end;
+	}
+
+	get prologue(): string
+	{
+		return this.triviaToString(this.leadingTrivia);
+	}
+
+	get epilogue(): string
+	{
+		return this.triviaToString(this.trailingTrivia);
+	}
+
+	toString(): string
+	{
+		return this.prologue + this.src + this.epilogue;
+	}
+
+	beautify(): string
+	{
+		return this.src;
+	}
+
+	private triviaToString(triviaToken: Token[]): string
+	{
+		var s = '',
+			len: number,
+			i: number;
+
+		if (!triviaToken)
+			return '';
+
+		len = triviaToken.length;
+		for (i = 0; i < len; i++)
+			s += triviaToken[i].src;
+
+		return s;
+	}
 }
 
 
@@ -182,9 +241,77 @@ export class Tokenizer
 	private _startLine: number;
 	private _startColumn: number;
 
+	private _currentToken: Token = null;
+
+
 	constructor(src: string)
 	{
 		this._src = src;
+	}
+
+
+	nextToken(): Token
+	{
+		var leadingTrivia = [],
+			trailingTrivia = [],
+			currentToken = this._currentToken,
+			t: Token;
+
+		if (currentToken === null)
+		{
+			for (t = this.getNextToken(); ; )
+			{
+				if (t.token === EToken.WHITESPACE || t.token === EToken.COMMENT)
+					leadingTrivia.push(t);
+				else
+				{
+					currentToken = t;
+					break;
+				}
+
+				t = this.getNextToken();
+			}
+		}
+
+		for (t = this.getNextToken(); ; )
+		{
+			if (t.token === EToken.WHITESPACE || t.token === EToken.COMMENT)
+				trailingTrivia.push(t);
+			else
+			{
+				this._currentToken = t;
+				break;
+			}
+
+			t = this.getNextToken();
+		}
+
+		if (leadingTrivia.length > 0)
+			currentToken.leadingTrivia = leadingTrivia;
+		if (trailingTrivia.length > 0)
+			currentToken.trailingTrivia = trailingTrivia;
+
+		return currentToken;
+	}
+
+
+	private token(token: number, src?: string, value?: any, unit?: string, type?: string, start?: number, end?: number): Token
+	{
+		return new Token(
+			token,
+			{
+				startLine: this._startLine,
+				startColumn: this._startColumn,
+				endLine: this._line,
+				endColumn: this._column
+			},
+			src || this._src.substring(this._startPos, this._pos),
+			value,
+			unit,
+			type,
+			start,
+			end
+		);
 	}
 
 
@@ -193,7 +320,7 @@ export class Tokenizer
 	 *
 	 * @returns {IToken}
 	 */
-	nextToken(): IToken
+	private getNextToken(): Token
 	{
 		var c: string,
 			cp: number,
@@ -471,33 +598,6 @@ export class Tokenizer
 
 		this.nextChar();
 		return this.token(EToken.DELIM);
-	}
-
-	private token(token: number, src?: string, value?: any, unit?: string, type?: string, start?: number, end?: number): IToken
-	{
-		var t = <IToken> {
-			token: token,
-			src: src || this._src.substring(this._startPos, this._pos),
-			range: {
-				startLine: this._startLine,
-				startColumn: this._startColumn,
-				endLine: this._line,
-				endColumn: this._column
-			}
-		};
-
-		if (value !== undefined)
-			t.value = value;
-		if (unit !== undefined)
-			t.unit = unit;
-		if (type !== undefined)
-			t.type = type;
-		if (start !== undefined)
-			t.start = start;
-		if (end !== undefined)
-			t.end = end;
-
-		return t;
 	}
 
 	private nextChar(): string
@@ -793,7 +893,7 @@ export class Tokenizer
 	 *
 	 * @url http://www.w3.org/TR/css3-syntax/#consume-a-numeric-token
 	 */
-	private consumeNumeric(): IToken
+	private consumeNumeric(): Token
 	{
 		// Consume a number.
 		var num = this.consumeNumber(),
@@ -837,7 +937,7 @@ export class Tokenizer
 	 *
 	 * @url http://www.w3.org/TR/css3-syntax/#consume-an-ident-like-token
 	 */
-	private consumeIdentLike(): IToken
+	private consumeIdentLike(): Token
 	{
 		// Consume a name.
 		var name = this.consumeName(),
@@ -877,7 +977,7 @@ export class Tokenizer
 	 *
 	 * @url http://www.w3.org/TR/css3-syntax/#consume-a-string-token
 	 */
-	private consumeString(end: string, cpEnd: number): IToken
+	private consumeString(end: string, cpEnd: number): Token
 	{
 		var s = '',
 			c: string,
@@ -941,12 +1041,12 @@ export class Tokenizer
 	 *
 	 * @url http://www.w3.org/TR/css3-syntax/#consume-a-url-token
 	 */
-	private consumeURL(fnxName: string): IToken
+	private consumeURL(fnxName: string): Token
 	{
 		var s: string,
 			c: string,
 			cp: number,
-			str: IToken,
+			str: Token,
 			src: string,
 			withWhiteSpace: string;
 
@@ -1074,7 +1174,7 @@ export class Tokenizer
 	 *
 	 * @url http://www.w3.org/TR/css3-syntax/#consume-the-remnants-of-a-bad-url
 	 */
-	private consumeBadURLRemnants(): IToken
+	private consumeBadURLRemnants(): Token
 	{
 		var c: string,
 			cp: number;
@@ -1108,14 +1208,15 @@ export class Tokenizer
 	 *
 	 * @url http://www.w3.org/TR/css3-syntax/#consume-a-unicode-range-token
 	 */
-	private consumeUnicodeRange(start: string): IToken
+	private consumeUnicodeRange(start: string): Token
 	{
 		var s = '',
 			c: string,
 			rangeStart: number,
 			rangeEnd: number,
 			hasQuestionMarks = false,
-			i: number;
+			i: number,
+			end: string;
 
 		// step 1a
 		// Consume as many hex digits as possible, but no more than 6
@@ -1182,7 +1283,7 @@ export class Tokenizer
 			// step 2.2:
 			// Consume as many hex digits as possible, but no more than 6.
 			// Interpret the digits as a hexadecimal number. This is the end of the range.
-			var end = '';
+			end = '';
 			for (i = 0; i < 5; i++)
 			{
 				if (isHexDigit(this._src.charCodeAt(this._pos)))
@@ -1201,9 +1302,3 @@ export class Tokenizer
 		return this.token(EToken.UNICODE_RANGE, start + s, undefined, undefined, undefined, rangeStart, rangeEnd);
 	}
 }
-
-/*
-var t = new Tokenizer('url(1.png) url( "2.jpg" ) URL(\'3.gif\') url(x"a) X');
-for (var i = 0; i < 40; i++)
-	console.log(t.nextToken());
-*/

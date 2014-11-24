@@ -14,18 +14,14 @@ import Tokenizer = require('./tokenizer');
 interface IAtRuleSpec
 {
 	keyword: string;
-	astClass: new(atKeyword: string, prelude?: AST.ComponentValueList, block?: any) => AST.AtRule;
+	astClass: new(atKeyword: Tokenizer.Token, prelude?: AST.ComponentValueList, block?: any) => AST.AtRule;
 	type: EAtRule;
 }
 
 interface IASTStackEntry
 {
-	startToken: Tokenizer.IToken;
-	endToken: Tokenizer.IToken;
-	uncoreTokens: Tokenizer.EToken[];
-	prologue: string;
-	epilogue: string;
-	isInPrologue: boolean;
+	startToken: Tokenizer.Token;
+	endToken: Tokenizer.Token;
 }
 
 interface IParseError
@@ -63,8 +59,8 @@ export var atRules: IAtRuleSpec[] = <IAtRuleSpec[]> [
 export class Parser
 {
 	private _tokenizer: Tokenizer.Tokenizer;
-	private _currentToken: Tokenizer.IToken = null;
-	private _previousToken: Tokenizer.IToken = null;
+	private _currentToken: Tokenizer.Token = null;
+	private _previousToken: Tokenizer.Token = null;
 	private _astStack: IASTStackEntry[] = [];
 	private _discardedEntry: IASTStackEntry = null;
 
@@ -102,26 +98,32 @@ export class Parser
 	 */
 	parseRuleList(isBlock?: boolean, isTopLevel?: boolean): AST.RuleList
 	{
+		var rules: AST.AbstractRule[] = [],
+			rule: AST.Rule,
+			lbrace: Tokenizer.Token,
+			rbrace: Tokenizer.Token,
+			token: Tokenizer.EToken;
+
 		if (isBlock)
 		{
-			this.startEntity(Tokenizer.EToken.LBRACE, Tokenizer.EToken.RBRACE);
+			this.startEntity();
 			this.expect(Tokenizer.EToken.LBRACE);
+			lbrace = this._currentToken;
 			this.nextToken();   // consume '{'
 		}
 		else
 			this.startEntity();
 
-		var rules: AST.AbstractRule[] = [];
-
 		// Repeatedly consume the next input token:
 		for ( ; ; )
 		{
-			var token = this._currentToken.token;
+			token = this._currentToken.token;
 
 			if (token === Tokenizer.EToken.EOF)
 				break;
 			else if (isBlock && token === Tokenizer.EToken.RBRACE)
 			{
+				rbrace = this._currentToken;
 				this.nextToken();
 				break;
 			}
@@ -141,7 +143,9 @@ export class Parser
 					}
 					catch (e)
 					{
-						this.cleanup(e, Tokenizer.EToken.IDENT, Tokenizer.EToken.AT_KEYWORD);
+						rule = new AST.Rule();
+						rule.errorTokens = this.cleanup(e, Tokenizer.EToken.IDENT, Tokenizer.EToken.AT_KEYWORD);
+						rules.push(rule);
 					}
 				}
 			}
@@ -155,7 +159,9 @@ export class Parser
 				}
 				catch (e)
 				{
-					this.cleanup(e, Tokenizer.EToken.IDENT, Tokenizer.EToken.AT_KEYWORD);
+					rule = new AST.Rule();
+					rule.errorTokens = this.cleanup(e, Tokenizer.EToken.IDENT, Tokenizer.EToken.AT_KEYWORD);
+					rules.push(rule);
 				}
 			}
 			else
@@ -168,28 +174,14 @@ export class Parser
 				}
 				catch (e)
 				{
-					this.cleanup(e, Tokenizer.EToken.IDENT, Tokenizer.EToken.AT_KEYWORD);
+					rule = new AST.Rule();
+					rule.errorTokens = this.cleanup(e, Tokenizer.EToken.IDENT, Tokenizer.EToken.AT_KEYWORD);
+					rules.push(rule);
 				}
 			}
 		}
 
-		// normalize the rule list
-		var len = rules.length;
-		if (len > 1)
-		{
-			var lastRule = rules[len - 1];
-			if ((lastRule instanceof AST.Rule) && (<AST.Rule> lastRule).style === null)
-			{
-				rules.pop();
-				var rule = rules[len - 2];
-
-				rule.epilogue += lastRule.toString();
-				rule.range.endLine = lastRule.range.endLine;
-				rule.range.endColumn = lastRule.range.endColumn;
-			}
-		}
-
-		return this.endEntity(new AST.RuleList(rules));
+		return this.endEntity(new AST.RuleList(rules, lbrace, rbrace));
 	}
 
 	/**
@@ -198,19 +190,18 @@ export class Parser
 	 */
 	parseQualifiedRule(): AST.Rule
 	{
+		var selectors = [],
+			selectorList: AST.SelectorList = null,
+			declarationList: AST.DeclarationList = null,
+			token: Tokenizer.EToken;
+
 		this.startEntity(); // start the rule
-		this.consumeWhitespace();
-
 		this.startEntity(); // start the selector list
-
-		var selectors = [];
-		var selectorList: AST.SelectorList = null;
-		var declarationList: AST.DeclarationList = null;
 
 		// Repeatedly consume the next input token:
 		for ( ; ; )
 		{
-			var token = this._currentToken.token;
+			token = this._currentToken.token;
 
 			if (token === Tokenizer.EToken.EOF)
 			{
@@ -243,19 +234,19 @@ export class Parser
 	 */
 	parseAtRule(): AST.AtRule
 	{
-		var atKeyword = this._currentToken;
-		var spec = this.getAtRuleSpec(atKeyword);
+		var atKeyword = this._currentToken,
+			spec = this.getAtRuleSpec(atKeyword),
+			prelude: AST.ComponentValue[],
+			block: AST.ASTNode,
+			t: Tokenizer.Token,
+			token: Tokenizer.EToken;
 
-		var uncoreTokens: Tokenizer.EToken[] = undefined;
-		if (spec && spec.type === EAtRule.SIMPLE)
-			uncoreTokens = [ Tokenizer.EToken.SEMICOLON ];
+		// consume the @<rule> token
+		this.startEntity();
+		this.nextToken();
 
-		this.startEntity.apply(this, uncoreTokens);
-		this.nextToken();   // consume the @<rule> token
+		prelude = this.parseComponentValueList(Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.LBRACE);
 
-		var prelude = this.parseComponentValueList();
-
-		var block: AST.ASTNode = undefined;
 		if (spec)
 		{
 			if (spec.type === EAtRule.DECLARATION_LIST)
@@ -263,15 +254,15 @@ export class Parser
 			else if (spec.type === EAtRule.RULE_LIST)
 				block = this.parseRuleBlock();
 
-			return this.endEntity(new spec.astClass(atKeyword.src, prelude, block));
+			return this.endEntity(new spec.astClass(atKeyword, new AST.ComponentValueList(prelude), block));
 		}
 
 		// not a registered at-rule: create a generic at-rule object
 		// Repeatedly consume the next input token:
 		for ( ; ; )
 		{
-			var t = this._currentToken;
-			var token = t.token;
+			t = this._currentToken;
+			token = t.token;
 
 			if (token === Tokenizer.EToken.EOF)
 				break;
@@ -288,7 +279,7 @@ export class Parser
 			}
 		}
 
-		return this.endEntity(new AST.AtRule(atKeyword.src, prelude, block));
+		return this.endEntity(new AST.AtRule(atKeyword, new AST.ComponentValueList(prelude), block));
 	}
 
 	/**
@@ -297,22 +288,29 @@ export class Parser
 	 */
 	parseDeclarationList(): AST.DeclarationList
 	{
-		this.startEntity(Tokenizer.EToken.LBRACE, Tokenizer.EToken.RBRACE);
+		var lbrace: Tokenizer.Token,
+			rbrace: Tokenizer.Token,
+			token: Tokenizer.EToken,
+			declaration: AST.Declaration,
+			declarations: AST.Declaration[] = [];
 
+		this.startEntity();
+
+		// consume '{'
 		this.expect(Tokenizer.EToken.LBRACE);
-		this.nextToken();   // consume '{'
-
-		var declarations: AST.Declaration[] = [];
+		lbrace = this._currentToken;
+		this.nextToken();
 
 		// Repeatedly consume the next input token and process it as follows:
 		for ( ; ; )
 		{
-			var token = this._currentToken.token;
+			token = this._currentToken.token;
 
 			if (token === Tokenizer.EToken.EOF)
 				break;
 			else if (token === Tokenizer.EToken.RBRACE)
 			{
+				rbrace = this._currentToken;
 				this.nextToken();
 				break;
 			}
@@ -325,12 +323,14 @@ export class Parser
 			}
 			catch (e)
 			{
-				this.cleanup(e, Tokenizer.EToken.RBRACE);
-				break;
+				declaration = new AST.Declaration(null, null, null, null);
+				declaration.errorTokens = this.cleanup(e, Tokenizer.EToken.RBRACE);
+				declarations.push(declaration);
+				// XX break;
 			}
 		}
 
-		return this.endEntity(new AST.DeclarationList(declarations));
+		return this.endEntity(new AST.DeclarationList(declarations, lbrace, rbrace));
 	}
 
 	/**
@@ -339,22 +339,31 @@ export class Parser
 	 */
 	parseDeclaration(): AST.Declaration
 	{
+		var name: Tokenizer.Token,
+			colon: Tokenizer.Token,
+			value: AST.DeclarationValue,
+			semicolon: Tokenizer.Token;
+
 		this.startEntity();
-		this.consumeWhitespace();
 
 		this.expect(Tokenizer.EToken.IDENT);
-		var name = this._currentToken;
-
+		name = this._currentToken;
 		this.nextToken();
-		this.consumeWhitespace();
 
 		// If the current input token is anything other than a <colon-token>,
 		// this is a parse error. Return nothing.
 		// Otherwise, consume the next input token.
 		this.expect(Tokenizer.EToken.COLON);
+		colon = this._currentToken;
 		this.nextToken();
 
-		return this.endEntity(new AST.Declaration(name.src, this.parseDeclarationValue()));
+		value = this.parseDeclarationValue();
+
+		this.expect(Tokenizer.EToken.SEMICOLON);
+		semicolon = this._currentToken;
+		this.nextToken();
+
+		return this.endEntity(new AST.Declaration(name, colon, value, semicolon));
 	}
 
 	/**
@@ -363,13 +372,8 @@ export class Parser
 	 */
 	parseDeclarationValue(): AST.DeclarationValue
 	{
-		this.startEntity(Tokenizer.EToken.SEMICOLON);
-
-		var value = this.parseComponentValueList();
-		if (this._currentToken.token === Tokenizer.EToken.SEMICOLON)
-			this.nextToken();
-
-		return this.endEntity(new AST.DeclarationValue(value));
+		this.startEntity();
+		return this.endEntity(new AST.DeclarationValue(this.parseComponentValueList(Tokenizer.EToken.SEMICOLON)));
 	}
 
 	/**
@@ -378,13 +382,16 @@ export class Parser
 	 */
 	parseSelectorList(): AST.SelectorList
 	{
+		var selectors: AST.Selector[] = [],
+			t: Tokenizer.Token,
+			token: Tokenizer.EToken;
+
 		this.startEntity();
-		var selectors: AST.Selector[] = [];
 
 		for ( ; ; )
 		{
-			var t = this._currentToken;
-			var token = t.token;
+			t = this._currentToken;
+			token = t.token;
 
 			if (token === Tokenizer.EToken.EOF || token === Tokenizer.EToken.LBRACE)
 				break;
@@ -401,63 +408,50 @@ export class Parser
 	 */
 	parseSelector(): AST.Selector
 	{
-		var values = [];
+		var values: AST.ComponentValue[],
+			separator: Tokenizer.Token,
+			selector: AST.Selector;
 
-		this.startEntity(Tokenizer.EToken.COMMA);
-
-		// start first selector component
 		this.startEntity();
 
-		for (var t = this._currentToken; ; )
+		try
 		{
-			var token = t.token;
-
-			if (token === Tokenizer.EToken.EOF || token === Tokenizer.EToken.LBRACE)
+			values = this.parseComponentValueList(Tokenizer.EToken.COMMA, Tokenizer.EToken.LBRACE);
+			if (this._currentToken.token === Tokenizer.EToken.COMMA)
 			{
-				// end last selector component
-				this.discardEntity();
-				break;
-			}
-			else if (token === Tokenizer.EToken.COMMA)
-			{
-				// end last selector component
-				this.discardEntity();
+				separator = this._currentToken;
 				this.nextToken();
-				break;
 			}
-			else if (token !== Tokenizer.EToken.WHITESPACE && token !== Tokenizer.EToken.COMMENT)
-			{
-				var v = t;
-				t = this.nextToken();
-				values.push(this.endEntity(new AST.ComponentValue(v)));
-				this.startEntity();
-			}
-			else
-				t = this.nextToken();
+		}
+		catch (e)
+		{
+			selector = new AST.Selector(null);
+			selector.errorTokens = this.cleanup(e, Tokenizer.EToken.COMMA, Tokenizer.EToken.LBRACE);
+			return selector;
 		}
 
-		return <AST.Selector> this.endEntity(new AST.Selector(values));
+		return <AST.Selector> this.endEntity(new AST.Selector(values, separator));
 	}
 
 	/**
 	 *
 	 * @returns {AST.ComponentValueList}
 	 */
-	parseComponentValueList(): AST.ComponentValueList
+	parseComponentValueList(...endTokens: Tokenizer.EToken[]): AST.ComponentValue[]
 	{
-		var values = [];
-
-		// start the list entity
-		this.startEntity();
+		var values = [],
+			t: Tokenizer.Token,
+			v: Tokenizer.Token,
+			token: Tokenizer.EToken;
 
 		// start the first component
 		this.startEntity();
 
-		for (var t = this._currentToken; ; )
+		for (t = this._currentToken; ; )
 		{
-			var token = t.token;
+			token = t.token;
 
-			if (token === Tokenizer.EToken.EOF || token === Tokenizer.EToken.SEMICOLON || token === Tokenizer.EToken.LBRACE)
+			if (token === Tokenizer.EToken.EOF || endTokens.indexOf(token) >= 0)
 			{
 				// end the last component
 				this.discardEntity();
@@ -477,18 +471,16 @@ export class Parser
 				this.startEntity();
 				t = this._currentToken;
 			}
-			else if (token !== Tokenizer.EToken.WHITESPACE && token !== Tokenizer.EToken.COMMENT)
+			else
 			{
-				var v = t;
+				v = t;
 				t = this.nextToken();
 				values.push(this.endEntity(new AST.ComponentValue(v)));
 				this.startEntity();
 			}
-			else
-				t = this.nextToken();
 		}
 
-		return this.endEntity(new AST.ComponentValueList(values));
+		return values;
 	}
 
 	/**
@@ -497,8 +489,12 @@ export class Parser
 	 */
 	parseBlock(): AST.BlockComponentValue
 	{
-		var token = this._currentToken.token;
-		var endingToken = undefined;
+		var startToken = this._currentToken,
+			token = startToken.token,
+			endingToken = undefined,
+			t: Tokenizer.Token,
+			v: Tokenizer.Token,
+			values: AST.IComponentValue[] = [];
 
 		if (token === Tokenizer.EToken.LBRACE)
 			endingToken = Tokenizer.EToken.RBRACE;
@@ -508,15 +504,16 @@ export class Parser
 			endingToken = Tokenizer.EToken.RPAREN;
 
 		// start the block component
-		this.startEntity(token, endingToken);
+		this.startEntity();
+
+		// consume the block starting token
 		this.expect(Tokenizer.EToken.LBRACE, Tokenizer.EToken.LBRACKET, Tokenizer.EToken.LPAREN);
-		this.nextToken();   // consume the block starting token
+		this.nextToken();
 
 		// start the first component value
 		this.startEntity();
 
-		var values = [];
-		for (var t = this.nextToken(); ; )
+		for (t = this._currentToken; ; )
 		{
 			token = t.token;
 
@@ -549,18 +546,16 @@ export class Parser
 				this.startEntity();
 				t = this._currentToken;
 			}
-			else if (token !== Tokenizer.EToken.WHITESPACE && token !== Tokenizer.EToken.COMMENT)
+			else
 			{
-				var v = t;
+				v = t;
 				t = this.nextToken();
 				values.push(this.endEntity(new AST.ComponentValue(v)));
 				this.startEntity();
 			}
-			else
-				t = this.nextToken();
 		}
 
-		return this.endEntity(new AST.BlockComponentValue(values));
+		return this.endEntity(new AST.BlockComponentValue(startToken, t, values));
 	}
 
 	/**
@@ -569,20 +564,27 @@ export class Parser
 	 */
 	parseFunction(): AST.FunctionComponentValue
 	{
+		var t: Tokenizer.Token,
+			token: number,
+			name: Tokenizer.Token,
+			arg: AST.ComponentValue[],
+			separator: Tokenizer.Token,
+			args: AST.IComponentValue[] = [];
+
 		// start the function
-		this.startEntity(Tokenizer.EToken.RPAREN);
+		this.startEntity();
 		this.expect(Tokenizer.EToken.FUNCTION);
 
-		var name = this._currentToken;
-		this.nextToken();   // consume the function token
+		// consume the function token
+		name = this._currentToken;
+		this.nextToken();
 
 		// start the first argument
-		this.startEntity(Tokenizer.EToken.COMMA);
+		this.startEntity();
 
-		var args = [];
-		for (var t = this._currentToken; ; )
+		for (t = this._currentToken; ; )
 		{
-			var token = t.token;
+			token = t.token;
 
 			if (token === Tokenizer.EToken.EOF)
 			{
@@ -597,61 +599,47 @@ export class Parser
 				this.nextToken();
 				break;
 			}
-			else if (token === Tokenizer.EToken.LPAREN)
-			{
-				this.discardEntity();
-				args.push(this.parseBlock());
-				this.startEntity(Tokenizer.EToken.COMMA);
-				t = this._currentToken;
-			}
-			else if (token === Tokenizer.EToken.FUNCTION)
-			{
-				this.discardEntity();
-				args.push(this.parseFunction());
-				this.startEntity(Tokenizer.EToken.COMMA);
-				t = this._currentToken;
-			}
-			else if (token !== Tokenizer.EToken.WHITESPACE && token !== Tokenizer.EToken.COMMENT && token !== Tokenizer.EToken.COMMA)
-			{
-				var v = t;
-				t = this.nextToken();
-				args.push(this.endEntity(new AST.ComponentValue(v)));
-				this.startEntity(Tokenizer.EToken.COMMA);
-			}
 			else
-				t = this.nextToken();
+			{
+				arg = this.parseComponentValueList(
+					Tokenizer.EToken.COMMA, Tokenizer.EToken.RPAREN,
+					// synchronization points in case of an error
+					Tokenizer.EToken.LBRACE, Tokenizer.EToken.RBRACE
+				);
+
+				separator = undefined;
+				t = this._currentToken;
+				token = t.token;
+
+				this.expect(Tokenizer.EToken.COMMA, Tokenizer.EToken.RPAREN);
+				if (token === Tokenizer.EToken.COMMA)
+				{
+					separator = t;
+					t = this.nextToken();
+				}
+
+				args.push(this.endEntity(new AST.FunctionArgumentValue(arg, separator)));
+				this.startEntity();
+			}
 		}
 
-		return this.endEntity(new AST.FunctionComponentValue(name.value, args));
+		return this.endEntity(new AST.FunctionComponentValue(name, t, args));
 	}
 
 	/**
 	 *
 	 * @returns {IToken}
 	 */
-	private nextToken(): Tokenizer.IToken
+	private nextToken(): Tokenizer.Token
 	{
-		var t = this._currentToken;
+		var t = this._currentToken,
+			len = this._astStack.length,
+			data: IASTStackEntry;
 
-		var len = this._astStack.length;
 		if (len > 0)
 		{
-			var token = t.token;
-
-			var data = this._astStack[len - 1];
+			data = this._astStack[len - 1];
 			data.endToken = t;
-
-			if (token !== Tokenizer.EToken.WHITESPACE && token !== Tokenizer.EToken.COMMENT &&
-				(data.uncoreTokens === undefined || data.uncoreTokens.indexOf(token) < 0))
-			{
-				data.isInPrologue = false;
-				data.epilogue = '';
-			}
-			else if (!data.isInPrologue)
-				data.epilogue += t.src;
-
-			if (data.isInPrologue)
-				data.prologue += t.src;
 		}
 
 		this._previousToken = t;
@@ -660,28 +648,23 @@ export class Parser
 
 	/**
 	 *
-	 * @param uncoreTokens
 	 */
-	private startEntity(...uncoreTokens: Tokenizer.EToken[])
+	private startEntity()
 	{
 		// once a new entity is pushed to the stack, handle the current entity's prologue/epilogue
-		var len = this._astStack.length;
+		var len = this._astStack.length,
+			data: IASTStackEntry;
+
 		if (len > 0)
 		{
-			var data = this._astStack[len - 1];
+			data = this._astStack[len - 1];
 			data.endToken = undefined;
-			data.epilogue = '';
-			data.isInPrologue = false;
 		}
 
 		// add the meta-data for the new entity
 		this._astStack.push({
 			startToken: this._discardedEntry ? this._discardedEntry.startToken : this._currentToken,
-			endToken: undefined,
-			uncoreTokens: uncoreTokens,
-			prologue: this._discardedEntry ? this._discardedEntry.prologue : '',
-			epilogue: '',
-			isInPrologue: true
+			endToken: undefined
 		});
 
 		this._discardedEntry = null;
@@ -696,17 +679,7 @@ export class Parser
 	{
 		var data = this._astStack.pop();
 		if (!node)
-		{
-			/*
-			 // the entity is discarded; append the prologue of this one to the epilogue
-			 // of the entity one level below
-			 var len = this._astStack.length;
-			 if (len > 0)
-			 this._astStack[len - 1].epilogue += data.prologue;
-			 */
-
 			return null;
-		}
 
 		if (data.startToken)
 		{
@@ -725,9 +698,6 @@ export class Parser
 			node.range.endColumn = this._previousToken.range.endColumn;
 		}
 
-		(<T.INode> node).prologue = data.prologue;
-		(<T.INode> node).epilogue = (this._discardedEntry ? this._discardedEntry.prologue : '') + data.epilogue;
-
 		this._discardedEntry = null;
 
 		return node;
@@ -744,9 +714,11 @@ export class Parser
 	 */
 	private expect(...tokens: Tokenizer.EToken[])
 	{
+		var data: IASTStackEntry;
+
 		if (tokens.indexOf(this._currentToken.token) < 0)
 		{
-			var data = this._astStack[this._astStack.length - 1];
+			data = this._astStack[this._astStack.length - 1];
 			this.discardEntity();
 			throw { expected: tokens, data: data };
 		}
@@ -759,55 +731,52 @@ export class Parser
 	 * @param e
 	 * @param endTokens
 	 */
-	private cleanup(e: IParseError, ...endTokens: Tokenizer.EToken[])
+	private cleanup(e: IParseError, ...endTokens: Tokenizer.EToken[]): Tokenizer.Token[]
 	{
-		var epilogue = e.data ? e.data.prologue : '';
+		var t: Tokenizer.Token,
+			token: Tokenizer.EToken,
+			errorTokens: Tokenizer.Token[] = [];
 
-		for (var t = this._currentToken; ; )
+		for (t = this._currentToken; ; )
 		{
-			var token = t.token;
-
-			if (token === Tokenizer.EToken.EOF)
+			token = t.token;
+			if (token === Tokenizer.EToken.EOF || endTokens.indexOf(token) >= 0)
 				break;
 
-			epilogue += t.src;
+			errorTokens.push(t);
 			t = this.nextToken();
-
-			if (endTokens.indexOf(token) >= 0)
-				break;
 		}
 
+		/*
 		var len = this._astStack.length;
 		if (len > 0)
-			this._astStack[len - 1].epilogue = epilogue;
+			this._astStack[len - 1].errorTokens = errorTokens;
+			*/
 
 		this._discardedEntry = null;
+
+		return errorTokens;
 	}
 
-	/**
-	 *
-	 */
-	private consumeWhitespace()
-	{
-		while (this._currentToken.token === Tokenizer.EToken.WHITESPACE || this._currentToken.token === Tokenizer.EToken.COMMENT)
-			this.nextToken();
-	}
 
 	/**
 	 *
 	 * @param atKeyword
 	 * @returns {*}
 	 */
-	private getAtRuleSpec(atKeyword: Tokenizer.IToken): IAtRuleSpec
+	private getAtRuleSpec(atKeyword: Tokenizer.Token): IAtRuleSpec
 	{
-		var value = atKeyword.value;
-		var isPrefixed = value[0] === '-';
-		var len = atRules.length;
+		var value = atKeyword.value,
+			isPrefixed = value[0] === '-',
+			len = atRules.length,
+			i: number,
+			spec: IAtRuleSpec,
+			keyword: string;
 
-		for (var i = 0; i < len; i++)
+		for (i = 0; i < len; i++)
 		{
-			var spec = atRules[i];
-			var keyword = spec.keyword;
+			spec = atRules[i];
+			keyword = spec.keyword;
 
 			if (spec.keyword === value)
 				return spec;
