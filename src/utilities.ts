@@ -218,7 +218,7 @@ export function insertRangeFromNode(ast: T.INode, nodeModified: T.INode, offset?
 				insertRange(node.range, range);
 
 			// recursively update the children
-			var children = node.children;
+			var children = node.getChildren();
 			var len = children.length;
 			for (var i = 0; i < len; i++)
 				updateRecursive(children[i]);
@@ -254,7 +254,7 @@ export function zeroRange(ast: T.INode, nodeModified: T.INode): void
 		deleteRange(node.range, range);
 
 		// recursively update the children
-		var children = node.children;
+		var children = node.getChildren();
 		var len = children.length;
 		for (var i = 0; i < len; i++)
 			updateRecursive(children[i]);
@@ -310,7 +310,7 @@ export function offsetRange(ast: T.INode, lineOffset: number, columnOffset: numb
 		node.range.startLine += lineOffset;
 		node.range.endLine += lineOffset;
 
-		var children = node.children;
+		var children = node.getChildren();
 		var len = children.length;
 		for (var i = 0; i < len; i++)
 			offsetRecursive(children[i]);

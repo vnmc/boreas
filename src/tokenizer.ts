@@ -97,77 +97,6 @@ enum EChar
 }
 
 
-export class Token
-{
-	token: number;
-	src: string;
-	value: any;
-	unit: string;
-	type: string;
-	start: number;
-	end: number;
-	range: T.ISourceRange;
-	leadingTrivia: Token[];
-	trailingTrivia: Token[];
-
-	constructor(token: number, range: T.ISourceRange, src?: string, value?: any, unit?: string, type?: string, start?: number, end?: number)
-	{
-		this.token = token;
-		this.range = range;
-		this.src = src;
-		this.value = value || this.src;
-
-		if (unit !== undefined)
-			this.unit = unit;
-
-		if (type !== undefined)
-			this.type = type;
-
-		if (start !== undefined)
-			this.start = start;
-
-		if (end !== undefined)
-			this.end = end;
-	}
-
-	get prologue(): string
-	{
-		return this.triviaToString(this.leadingTrivia);
-	}
-
-	get epilogue(): string
-	{
-		return this.triviaToString(this.trailingTrivia);
-	}
-
-	toString(): string
-	{
-		return this.prologue + this.src + this.epilogue;
-	}
-
-	beautify(): string
-	{
-		return this.src;
-	}
-
-	private triviaToString(triviaToken: Token[]): string
-	{
-		var s = '',
-			len: number,
-			i: number;
-
-		if (!triviaToken)
-			return '';
-
-		len = triviaToken.length;
-		for (i = 0; i < len; i++)
-			s += triviaToken[i].src;
-
-		return s;
-	}
-}
-
-
 // ==================================================================
 // GLOBAL HELPER FUNCTIONS
 // ==================================================================
@@ -215,10 +144,12 @@ function isHexDigit(c: number): boolean
 		(EChar.LCASE_A <= c && c <= EChar.LCASE_F));
 }
 
+/*
 function isSurrogate(c: number): boolean
 {
 	return 0xd800 <= c && c <= 0xdfff;
 }
+*/
 
 function isEscape(c: string): boolean
 {
@@ -229,6 +160,165 @@ function isEscape(c: string): boolean
 // ==================================================================
 // TOKENIZER IMPLEMENTATION
 // ==================================================================
+
+export class Token implements T.INodeOrToken
+{
+	token: number;
+	src: string;
+	value: any;
+	unit: string;
+	type: string;
+	start: number;
+	end: number;
+	range: T.ISourceRange;
+	leadingTrivia: Token[];
+	trailingTrivia: Token[];
+
+	constructor(token: number, range: T.ISourceRange, src?: string, value?: any, unit?: string, type?: string, start?: number, end?: number)
+	{
+		this.token = token;
+		this.range = range;
+		this.src = src;
+		this.value = value || this.src;
+
+		if (unit !== undefined)
+			this.unit = unit;
+
+		if (type !== undefined)
+			this.type = type;
+
+		if (start !== undefined)
+			this.start = start;
+
+		if (end !== undefined)
+			this.end = end;
+	}
+
+	getPrologue(): string
+	{
+		return this.triviaToString(this.leadingTrivia);
+	}
+
+	getEpilogue(): string
+	{
+		return this.triviaToString(this.trailingTrivia);
+	}
+
+	hasLeadingWhitespace(): boolean
+	{
+		var len: number,
+			i: number;
+
+		if (!this.leadingTrivia)
+			return false;
+
+		len = this.leadingTrivia.length;
+		for (i = 0; i < len; i++)
+			if (this.leadingTrivia[i].token === EToken.WHITESPACE)
+				return true;
+
+		return false;
+	}
+
+	hasTrailingWhitespace(): boolean
+	{
+		var len: number,
+			i: number;
+
+		if (!this.trailingTrivia)
+			return false;
+
+		len = this.trailingTrivia.length;
+		for (i = 0; i < len; i++)
+			if (this.trailingTrivia[i].token === EToken.WHITESPACE)
+				return true;
+
+		return false;
+	}
+
+	toString(): string
+	{
+		return this.getPrologue() + this.src + this.getEpilogue();
+	}
+
+	beautify(): string
+	{
+		/*
+		var v: string;
+		switch (this.token)
+		{
+		case EToken.DELIM:
+			v = this.value;
+			if (v !== '.' || v !== '*')
+				return this.src;
+			return ' ' + this.src + ' ';
+
+		case EToken.LPAREN:
+			return ' ' + this.src;
+
+		case EToken.COLON:
+		case EToken.RPAREN:
+			return this.src + ' ';
+
+		case EToken.INCLUDE_MATCH:
+		case EToken.DASH_MATCH:
+		case EToken.PREFIX_MATCH:
+		case EToken.SUFFIX_MATCH:
+		case EToken.SUBSTRING_MATCH:
+		case EToken.COLUMN:
+			return ' ' + this.src + ' ';
+		}
+*/
+
+		return this.beautifyComments(this.leadingTrivia) + this.src + this.beautifyComments(this.trailingTrivia);
+	}
+
+	private triviaToString(triviaToken: Token[]): string
+	{
+		var s = '',
+			len: number,
+			i: number;
+
+		if (!triviaToken)
+			return '';
+
+		len = triviaToken.length;
+		for (i = 0; i < len; i++)
+			s += triviaToken[i].src;
+
+		return s;
+	}
+
+	private beautifyComments(triviaToken: Token[]): string
+	{
+		var s = '',
+			len: number,
+			i: number,
+			t: Token,
+			prevWasComment = false;
+
+		if (!triviaToken)
+			return '';
+
+		len = triviaToken.length;
+		for (i = 0; i < len; i++)
+		{
+			t = triviaToken[i];
+
+			if (prevWasComment)
+				s += ' ';
+
+			if (t.token === EToken.COMMENT)
+			{
+				s += t.src;
+				prevWasComment = true;
+			}
+		}
+
+		return s;
+	}
+}
+
 
 export class Tokenizer
 {
@@ -250,6 +340,13 @@ export class Tokenizer
 	}
 
 
+	/**
+	 * Returns the next token in the token stream.
+	 * Leading and trailing whitespaces and comments of a token are returned
+	 * in the leadingTrivia and trailingTrivia properties of the token.
+	 *
+	 * @returns {Token}
+	 */
 	nextToken(): Token
 	{
 		var leadingTrivia = [],
@@ -295,6 +392,18 @@ export class Tokenizer
 	}
 
 
+	/**
+	 * Constructs a new token.
+	 *
+	 * @param token
+	 * @param src
+	 * @param value
+	 * @param unit
+	 * @param type
+	 * @param start
+	 * @param end
+	 * @returns {Token}
+	 */
 	private token(token: number, src?: string, value?: any, unit?: string, type?: string, start?: number, end?: number): Token
 	{
 		return new Token(
@@ -317,6 +426,7 @@ export class Tokenizer
 
 	/**
 	 * Returns the next token in the stream.
+	 * Whitespaces and comments are returned as separate tokens.
 	 *
 	 * @returns {IToken}
 	 */
@@ -610,7 +720,7 @@ export class Tokenizer
 
 		if (c === '\r' || (c === '\n' && this._src[this._pos - 1] !== '\r'))
 		{
-			this._column = 1;
+			this._column = 0;
 			++this._line;
 		}
 
@@ -739,8 +849,8 @@ export class Tokenizer
 	{
 		var s: string,
 			c = this.nextChar(),
-			i: number,
-			num: number;
+			i: number;
+			// num: number;
 
 		if (isHexDigit(this._src.charCodeAt(this._pos)))
 		{
@@ -754,13 +864,16 @@ export class Tokenizer
 			}
 
 			if (isWhiteSpace(this._src.charCodeAt(this._pos)))
-				this.nextChar();
+				s += this.nextChar();
 
+			/*
 			num = parseInt(s, 16);
 			if (num === 0 || isSurrogate(num) || num >= 0x10ffff)
 				return '\ufffd';
 
 			return String.fromCharCode(num);
+			*/
+			return s;
 		}
 
 		if (c === undefined)

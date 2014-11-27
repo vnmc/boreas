@@ -2,7 +2,6 @@
 // IMPORT MODULES
 // ==================================================================
 
-import T = require('./types');
 import AST = require('./ast');
 import Tokenizer = require('./tokenizer');
 
@@ -18,16 +17,10 @@ interface IAtRuleSpec
 	type: EAtRule;
 }
 
-interface IASTStackEntry
-{
-	startToken: Tokenizer.Token;
-	endToken: Tokenizer.Token;
-}
-
 interface IParseError
 {
 	expected: Tokenizer.EToken[];
-	data: IASTStackEntry;
+	parsedNodes: any[];
 }
 
 enum EAtRule
@@ -60,9 +53,6 @@ export class Parser
 {
 	private _tokenizer: Tokenizer.Tokenizer;
 	private _currentToken: Tokenizer.Token = null;
-	private _previousToken: Tokenizer.Token = null;
-	private _astStack: IASTStackEntry[] = [];
-	private _discardedEntry: IASTStackEntry = null;
 
 
 	constructor(src: string)
@@ -77,8 +67,7 @@ export class Parser
 	 */
 	parseStyleSheet(): AST.StyleSheet
 	{
-		this.startEntity();
-		return <AST.StyleSheet> this.endEntity(new AST.StyleSheet(this.parseRuleList(false, true)));
+		return <AST.StyleSheet> new AST.StyleSheet(this.parseRuleList(false, true));
 	}
 
 	/**
@@ -99,20 +88,17 @@ export class Parser
 	parseRuleList(isBlock?: boolean, isTopLevel?: boolean): AST.RuleList
 	{
 		var rules: AST.AbstractRule[] = [],
-			rule: AST.Rule,
-			lbrace: Tokenizer.Token,
-			rbrace: Tokenizer.Token,
+			lbrace: Tokenizer.Token = null,
+			rbrace: Tokenizer.Token = null,
 			token: Tokenizer.EToken;
 
 		if (isBlock)
 		{
-			this.startEntity();
+			// consume '{'
 			this.expect(Tokenizer.EToken.LBRACE);
 			lbrace = this._currentToken;
-			this.nextToken();   // consume '{'
+			this.nextToken();
 		}
-		else
-			this.startEntity();
 
 		// Repeatedly consume the next input token:
 		for ( ; ; )
@@ -143,9 +129,7 @@ export class Parser
 					}
 					catch (e)
 					{
-						rule = new AST.Rule();
-						rule.errorTokens = this.cleanup(e, Tokenizer.EToken.IDENT, Tokenizer.EToken.AT_KEYWORD);
-						rules.push(rule);
+						rules.push(AST.Rule.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.RBRACE ], [ Tokenizer.EToken.AT_KEYWORD ])));
 					}
 				}
 			}
@@ -159,9 +143,7 @@ export class Parser
 				}
 				catch (e)
 				{
-					rule = new AST.Rule();
-					rule.errorTokens = this.cleanup(e, Tokenizer.EToken.IDENT, Tokenizer.EToken.AT_KEYWORD);
-					rules.push(rule);
+					rules.push(AST.Rule.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.RBRACE ], [ Tokenizer.EToken.AT_KEYWORD ])));
 				}
 			}
 			else
@@ -174,14 +156,12 @@ export class Parser
 				}
 				catch (e)
 				{
-					rule = new AST.Rule();
-					rule.errorTokens = this.cleanup(e, Tokenizer.EToken.IDENT, Tokenizer.EToken.AT_KEYWORD);
-					rules.push(rule);
+					rules.push(AST.Rule.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.RBRACE ], [ Tokenizer.EToken.AT_KEYWORD ])));
 				}
 			}
 		}
 
-		return this.endEntity(new AST.RuleList(rules, lbrace, rbrace));
+		return new AST.RuleList(rules, lbrace, rbrace);
 	}
 
 	/**
@@ -195,9 +175,6 @@ export class Parser
 			declarationList: AST.DeclarationList = null,
 			token: Tokenizer.EToken;
 
-		this.startEntity(); // start the rule
-		this.startEntity(); // start the selector list
-
 		// Repeatedly consume the next input token:
 		for ( ; ; )
 		{
@@ -206,7 +183,7 @@ export class Parser
 			if (token === Tokenizer.EToken.EOF)
 			{
 				// This is a parse error. Return nothing.
-				selectorList = this.endEntity(new AST.SelectorList(selectors));
+				selectorList = new AST.SelectorList(selectors);
 				break;
 			}
 
@@ -214,7 +191,7 @@ export class Parser
 			{
 				// Consume a simple block and assign it to the qualified rule’s block.
 				// Return the qualified rule.
-				selectorList = this.endEntity(new AST.SelectorList(selectors));
+				selectorList = new AST.SelectorList(selectors);
 				declarationList = this.parseDeclarationList();
 				break;
 			}
@@ -225,7 +202,7 @@ export class Parser
 			selectors.push(this.parseSelector());
 		}
 
-		return this.endEntity(new AST.Rule(selectorList, declarationList));
+		return new AST.Rule(selectorList, declarationList);
 	}
 
 	/**
@@ -242,7 +219,6 @@ export class Parser
 			token: Tokenizer.EToken;
 
 		// consume the @<rule> token
-		this.startEntity();
 		this.nextToken();
 
 		prelude = this.parseComponentValueList(Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.LBRACE);
@@ -254,7 +230,7 @@ export class Parser
 			else if (spec.type === EAtRule.RULE_LIST)
 				block = this.parseRuleBlock();
 
-			return this.endEntity(new spec.astClass(atKeyword, new AST.ComponentValueList(prelude), block));
+			return new spec.astClass(atKeyword, new AST.ComponentValueList(prelude), block);
 		}
 
 		// not a registered at-rule: create a generic at-rule object
@@ -279,7 +255,7 @@ export class Parser
 			}
 		}
 
-		return this.endEntity(new AST.AtRule(atKeyword, new AST.ComponentValueList(prelude), block));
+		return new AST.AtRule(atKeyword, new AST.ComponentValueList(prelude), block);
 	}
 
 	/**
@@ -291,10 +267,7 @@ export class Parser
 		var lbrace: Tokenizer.Token,
 			rbrace: Tokenizer.Token,
 			token: Tokenizer.EToken,
-			declaration: AST.Declaration,
 			declarations: AST.Declaration[] = [];
-
-		this.startEntity();
 
 		// consume '{'
 		this.expect(Tokenizer.EToken.LBRACE);
@@ -323,14 +296,12 @@ export class Parser
 			}
 			catch (e)
 			{
-				declaration = new AST.Declaration(null, null, null, null);
-				declaration.errorTokens = this.cleanup(e, Tokenizer.EToken.RBRACE);
-				declarations.push(declaration);
+				declarations.push(AST.Declaration.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.RBRACE ], [])));
 				// XX break;
 			}
 		}
 
-		return this.endEntity(new AST.DeclarationList(declarations, lbrace, rbrace));
+		return new AST.DeclarationList(declarations, lbrace, rbrace);
 	}
 
 	/**
@@ -339,31 +310,30 @@ export class Parser
 	 */
 	parseDeclaration(): AST.Declaration
 	{
-		var name: Tokenizer.Token,
+		var name: AST.ComponentValueList,
 			colon: Tokenizer.Token,
 			value: AST.DeclarationValue,
 			semicolon: Tokenizer.Token;
 
-		this.startEntity();
-
-		this.expect(Tokenizer.EToken.IDENT);
-		name = this._currentToken;
-		this.nextToken();
+		name = new AST.ComponentValueList(this.parseComponentValueList(Tokenizer.EToken.COLON, Tokenizer.EToken.SEMICOLON));
 
 		// If the current input token is anything other than a <colon-token>,
 		// this is a parse error. Return nothing.
 		// Otherwise, consume the next input token.
-		this.expect(Tokenizer.EToken.COLON);
+		this.expect(Tokenizer.EToken.COLON, name);
 		colon = this._currentToken;
 		this.nextToken();
 
 		value = this.parseDeclarationValue();
 
-		this.expect(Tokenizer.EToken.SEMICOLON);
-		semicolon = this._currentToken;
-		this.nextToken();
+		this.expect(Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.RBRACE, name, colon, value);
+		if (this._currentToken.token === Tokenizer.EToken.SEMICOLON)
+		{
+			semicolon = this._currentToken;
+			this.nextToken();
+		}
 
-		return this.endEntity(new AST.Declaration(name, colon, value, semicolon));
+		return new AST.Declaration(name, colon, value, semicolon);
 	}
 
 	/**
@@ -372,8 +342,7 @@ export class Parser
 	 */
 	parseDeclarationValue(): AST.DeclarationValue
 	{
-		this.startEntity();
-		return this.endEntity(new AST.DeclarationValue(this.parseComponentValueList(Tokenizer.EToken.SEMICOLON)));
+		return new AST.DeclarationValue(this.parseComponentValueList(Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.RBRACE));
 	}
 
 	/**
@@ -386,8 +355,6 @@ export class Parser
 			t: Tokenizer.Token,
 			token: Tokenizer.EToken;
 
-		this.startEntity();
-
 		for ( ; ; )
 		{
 			t = this._currentToken;
@@ -399,7 +366,7 @@ export class Parser
 				selectors.push(this.parseSelector());
 		}
 
-		return this.endEntity(new AST.SelectorList(selectors));
+		return new AST.SelectorList(selectors);
 	}
 
 	/**
@@ -409,10 +376,7 @@ export class Parser
 	parseSelector(): AST.Selector
 	{
 		var values: AST.ComponentValue[],
-			separator: Tokenizer.Token,
-			selector: AST.Selector;
-
-		this.startEntity();
+			separator: Tokenizer.Token;
 
 		try
 		{
@@ -425,12 +389,10 @@ export class Parser
 		}
 		catch (e)
 		{
-			selector = new AST.Selector(null);
-			selector.errorTokens = this.cleanup(e, Tokenizer.EToken.COMMA, Tokenizer.EToken.LBRACE);
-			return selector;
+			return AST.Selector.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.COMMA ], [ Tokenizer.EToken.LBRACE ]));
 		}
 
-		return <AST.Selector> this.endEntity(new AST.Selector(values, separator));
+		return <AST.Selector> new AST.Selector(values, separator);
 	}
 
 	/**
@@ -441,43 +403,36 @@ export class Parser
 	{
 		var values = [],
 			t: Tokenizer.Token,
-			v: Tokenizer.Token,
 			token: Tokenizer.EToken;
 
-		// start the first component
-		this.startEntity();
-
-		for (t = this._currentToken; ; )
+		try
 		{
-			token = t.token;
+			for (t = this._currentToken; ; )
+			{
+				token = t.token;
 
-			if (token === Tokenizer.EToken.EOF || endTokens.indexOf(token) >= 0)
-			{
-				// end the last component
-				this.discardEntity();
-				break;
+				if (token === Tokenizer.EToken.EOF || endTokens.indexOf(token) >= 0)
+					break;
+				else if (token === Tokenizer.EToken.LPAREN || token === Tokenizer.EToken.LBRACKET)
+				{
+					values.push(this.parseBlock());
+					t = this._currentToken;
+				}
+				else if (token === Tokenizer.EToken.FUNCTION)
+				{
+					values.push(this.parseFunction());
+					t = this._currentToken;
+				}
+				else
+				{
+					values.push(new AST.ComponentValue(t));
+					t = this.nextToken();
+				}
 			}
-			else if (token === Tokenizer.EToken.LPAREN || token === Tokenizer.EToken.LBRACKET)
-			{
-				this.discardEntity();
-				values.push(this.parseBlock());
-				this.startEntity();
-				t = this._currentToken;
-			}
-			else if (token === Tokenizer.EToken.FUNCTION)
-			{
-				this.discardEntity();
-				values.push(this.parseFunction());
-				this.startEntity();
-				t = this._currentToken;
-			}
-			else
-			{
-				v = t;
-				t = this.nextToken();
-				values.push(this.endEntity(new AST.ComponentValue(v)));
-				this.startEntity();
-			}
+		}
+		catch (e)
+		{
+			this.rethrow(e, values);
 		}
 
 		return values;
@@ -493,7 +448,6 @@ export class Parser
 			token = startToken.token,
 			endingToken = undefined,
 			t: Tokenizer.Token,
-			v: Tokenizer.Token,
 			values: AST.IComponentValue[] = [];
 
 		if (token === Tokenizer.EToken.LBRACE)
@@ -503,59 +457,47 @@ export class Parser
 		else if (token === Tokenizer.EToken.LPAREN)
 			endingToken = Tokenizer.EToken.RPAREN;
 
-		// start the block component
-		this.startEntity();
-
 		// consume the block starting token
 		this.expect(Tokenizer.EToken.LBRACE, Tokenizer.EToken.LBRACKET, Tokenizer.EToken.LPAREN);
 		this.nextToken();
 
-		// start the first component value
-		this.startEntity();
-
-		for (t = this._currentToken; ; )
+		try
 		{
-			token = t.token;
+			for (t = this._currentToken; ; )
+			{
+				token = t.token;
 
-			if (token === Tokenizer.EToken.EOF)
-			{
-				// end the last component
-				this.discardEntity();
-				break;
-			}
-			else if (token === endingToken)
-			{
-				// end the last component
-				this.discardEntity();
-
-				// end of block
-				this.nextToken();
-				break;
-			}
-			else if (token === Tokenizer.EToken.LPAREN || token === Tokenizer.EToken.LBRACKET || token === Tokenizer.EToken.LBRACE)
-			{
-				this.discardEntity();
-				values.push(this.parseBlock());
-				this.startEntity();
-				t = this._currentToken;
-			}
-			else if (token === Tokenizer.EToken.FUNCTION)
-			{
-				this.discardEntity();
-				values.push(this.parseFunction());
-				this.startEntity();
-				t = this._currentToken;
-			}
-			else
-			{
-				v = t;
-				t = this.nextToken();
-				values.push(this.endEntity(new AST.ComponentValue(v)));
-				this.startEntity();
+				if (token === Tokenizer.EToken.EOF)
+					break;
+				else if (token === endingToken)
+				{
+					// end of block
+					this.nextToken();
+					break;
+				}
+				else if (token === Tokenizer.EToken.LPAREN || token === Tokenizer.EToken.LBRACKET || token === Tokenizer.EToken.LBRACE)
+				{
+					values.push(this.parseBlock());
+					t = this._currentToken;
+				}
+				else if (token === Tokenizer.EToken.FUNCTION)
+				{
+					values.push(this.parseFunction());
+					t = this._currentToken;
+				}
+				else
+				{
+					values.push(new AST.ComponentValue(t));
+					t = this.nextToken();
+				}
 			}
 		}
+		catch (e)
+		{
+			this.rethrow(e, <AST.ASTNode[]> values);
+		}
 
-		return this.endEntity(new AST.BlockComponentValue(startToken, t, values));
+		return new AST.BlockComponentValue(startToken, t, values);
 	}
 
 	/**
@@ -571,31 +513,20 @@ export class Parser
 			separator: Tokenizer.Token,
 			args: AST.IComponentValue[] = [];
 
-		// start the function
-		this.startEntity();
 		this.expect(Tokenizer.EToken.FUNCTION);
 
 		// consume the function token
 		name = this._currentToken;
 		this.nextToken();
 
-		// start the first argument
-		this.startEntity();
-
 		for (t = this._currentToken; ; )
 		{
 			token = t.token;
 
 			if (token === Tokenizer.EToken.EOF)
-			{
-				// end the last argument
-				this.discardEntity();
 				break;
-			}
 			else if (token === Tokenizer.EToken.RPAREN)
 			{
-				// end the last argument
-				this.discardEntity();
 				this.nextToken();
 				break;
 			}
@@ -611,19 +542,18 @@ export class Parser
 				t = this._currentToken;
 				token = t.token;
 
-				this.expect(Tokenizer.EToken.COMMA, Tokenizer.EToken.RPAREN);
+				this.expect(Tokenizer.EToken.COMMA, Tokenizer.EToken.RPAREN, name, args, arg);
 				if (token === Tokenizer.EToken.COMMA)
 				{
 					separator = t;
 					t = this.nextToken();
 				}
 
-				args.push(this.endEntity(new AST.FunctionArgumentValue(arg, separator)));
-				this.startEntity();
+				args.push(new AST.FunctionArgumentValue(arg, separator));
 			}
 		}
 
-		return this.endEntity(new AST.FunctionComponentValue(name, t, args));
+		return new AST.FunctionComponentValue(name, t, args);
 	}
 
 	/**
@@ -632,97 +562,65 @@ export class Parser
 	 */
 	private nextToken(): Tokenizer.Token
 	{
-		var t = this._currentToken,
-			len = this._astStack.length,
-			data: IASTStackEntry;
-
-		if (len > 0)
-		{
-			data = this._astStack[len - 1];
-			data.endToken = t;
-		}
-
-		this._previousToken = t;
 		return (this._currentToken = this._tokenizer.nextToken());
 	}
 
-	/**
-	 *
-	 */
-	private startEntity()
-	{
-		// once a new entity is pushed to the stack, handle the current entity's prologue/epilogue
-		var len = this._astStack.length,
-			data: IASTStackEntry;
-
-		if (len > 0)
-		{
-			data = this._astStack[len - 1];
-			data.endToken = undefined;
-		}
-
-		// add the meta-data for the new entity
-		this._astStack.push({
-			startToken: this._discardedEntry ? this._discardedEntry.startToken : this._currentToken,
-			endToken: undefined
-		});
-
-		this._discardedEntry = null;
-	}
-
-	/**
-	 *
-	 * @param node
-	 * @returns {*}
-	 */
-	private endEntity<T extends T.INode>(node: T): T
-	{
-		var data = this._astStack.pop();
-		if (!node)
-			return null;
-
-		if (data.startToken)
-		{
-			node.range.startLine = data.startToken.range.startLine;
-			node.range.startColumn = data.startToken.range.startColumn;
-		}
-
-		if (data.endToken)
-		{
-			node.range.endLine = data.endToken.range.endLine;
-			node.range.endColumn = data.endToken.range.endColumn;
-		}
-		else if (this._previousToken)
-		{
-			node.range.endLine = this._previousToken.range.endLine;
-			node.range.endColumn = this._previousToken.range.endColumn;
-		}
-
-		this._discardedEntry = null;
-
-		return node;
-	}
-
-	private discardEntity()
-	{
-		this._discardedEntry = this._astStack.pop();
-	}
 
 	/**
 	 *
 	 * @param tokens
 	 */
-	private expect(...tokens: Tokenizer.EToken[])
+	private expect(...args: any[])
 	{
-		var data: IASTStackEntry;
+		var tokens: Tokenizer.EToken[] = [],
+			parsedNodes: any[] = [],
+			len = args.length,
+			i: number,
+			j: number,
+			l: number,
+			arg: any,
+			a: any;
+
+		// parse the arguments
+		for (i = 0; i < len; i++)
+		{
+			arg = args[i];
+			if ((arg instanceof AST.ASTNode) || (arg instanceof Tokenizer.Token))
+				parsedNodes.push(arg);
+			else if (Array.isArray(arg))
+			{
+				l = arg.length;
+				for (j = 0; j < l; j++)
+				{
+					a = arg[j];
+					if (a instanceof AST.ASTNode)
+						parsedNodes.push(a);
+					else
+						tokens.push(a);
+				}
+			}
+			else
+				tokens.push(arg);
+		}
 
 		if (tokens.indexOf(this._currentToken.token) < 0)
-		{
-			data = this._astStack[this._astStack.length - 1];
-			this.discardEntity();
-			throw { expected: tokens, data: data };
-		}
+			throw { expected: tokens, parsedNodes: parsedNodes };
 	}
+
+
+	private rethrow(e: IParseError, nodes: AST.ASTNode[])
+	{
+		// prepend the already parsed values to the "parsedNodes" of the error
+		// and re-throw the error
+
+		if (!e.parsedNodes)
+			e.parsedNodes = nodes;
+		else
+			e.parsedNodes = nodes.concat(e.parsedNodes);
+
+		throw e;
+	}
+
 
 	/**
 	 * Cleans up the token stream by consuming all the tokens until "endToken" is found.
@@ -730,30 +628,53 @@ export class Parser
 	 *
 	 * @param e
 	 * @param endTokens
+	 * @param nextTokens
 	 */
-	private cleanup(e: IParseError, ...endTokens: Tokenizer.EToken[]): Tokenizer.Token[]
+	private cleanup(e: IParseError, endTokens: Tokenizer.EToken[], nextTokens: Tokenizer.EToken[]): Tokenizer.Token[]
 	{
 		var t: Tokenizer.Token,
 			token: Tokenizer.EToken,
-			errorTokens: Tokenizer.Token[] = [];
+			errorTokens: Tokenizer.Token[] = [],
+			len: number,
+			node: any,
+			tokens: Tokenizer.Token[],
+			lenTokens: number,
+			i: number,
+			j: number;
+
+		// add the parsed tokens to the list of error tokens
+		if (e.parsedNodes)
+		{
+			len = e.parsedNodes.length;
+
+			for (i = 0; i < len; i++)
+			{
+				node = e.parsedNodes[i];
+
+				if (node instanceof Tokenizer.Token)
+					errorTokens.push(node);
+				else if (node instanceof AST.ASTNode)
+				{
+					tokens = node.getTokens();
+					lenTokens = tokens.length;
+					for (j = 0; j < lenTokens; j++)
+						errorTokens.push(tokens[j]);
+				}
+			}
+		}
 
 		for (t = this._currentToken; ; )
 		{
 			token = t.token;
-			if (token === Tokenizer.EToken.EOF || endTokens.indexOf(token) >= 0)
+			if (token === Tokenizer.EToken.EOF || nextTokens.indexOf(token) >= 0)
 				break;
 
 			errorTokens.push(t);
 			t = this.nextToken();
+
+			if (endTokens.indexOf(token) >= 0)
+				break;
 		}
-
-		/*
-		var len = this._astStack.length;
-		if (len > 0)
-			this._astStack[len - 1].errorTokens = errorTokens;
-			*/
-
-		this._discardedEntry = null;
 
 		return errorTokens;
 	}

@@ -13,7 +13,7 @@ module.exports = function(grunt)
 				options: {
 					basePath: 'src',
 					module: 'commonjs',
-					target: 'es5'
+					target: 'es3'
 				}
 			},
 
@@ -23,7 +23,7 @@ module.exports = function(grunt)
 				options: {
 					basePath: 'src',
 					module: 'commonjs',
-					target: 'es5',
+					target: 'es3',
 					watch: true
 				}
 			}

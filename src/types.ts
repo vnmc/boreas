@@ -1,23 +1,31 @@
 import Tokenizer = require('./tokenizer');
+import AST = require('./ast');
+
 
 // ==================================================================
 // TYPE DECLARATIONS
 // ==================================================================
 
-export interface INode
+export interface INodeOrToken
 {
 	range: ISourceRange;
-	parent: INode;
-	children: INode[];
-	errorTokens?: Tokenizer.Token[];
-
-	isAncestorOf: (node: INode) => boolean;
-
-	toJSON: () => any;
 	toString: () => string;
-	beautify: (level?: number) => string;
 }
 
+export interface INode extends INodeOrToken
+{
+	getParent: () => INode;
+	getChildren: () => INode[];
+	isAncestorOf: (node: INode) => boolean;
+
+	getTokens: () => Tokenizer.Token[];
+
+	walk: (walker: AST.IASTWalker) => any;
+
+	hasError: () => boolean;
+
+	beautify: (level?: number) => string;
+}
 
 export interface ISourceRange
 {

@@ -312,6 +312,15 @@ describe('CSS-Tokenizer', function()
 		token.token.should.eql(T.EToken.SUBSTRING_MATCH);
 	});
 
+	it('should tokenize escapes', function()
+	{
+		var t = new Tokenizer('#f00\\9\\0\\;');
+
+		var token = t.nextToken();
+		token.token.should.eql(T.EToken.HASH);
+		token.src.should.eql('#f00\\9\\0\\;');
+	});
+
 	it('should tokenize unicode ranges', function()
 	{
 		var t = new Tokenizer('U+26 u+01f-23a U+20?? U+12345678 U+1fff8??');
