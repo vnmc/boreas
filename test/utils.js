@@ -1,4 +1,4 @@
-exports.checkRanges = function(node, level)
+function checkRanges(node, level)
 {
     if (level === undefined)
         level = 0;
@@ -38,4 +38,7 @@ exports.checkRanges = function(node, level)
 
         prevChild = child;
     }
-};
+}
+
+
+exports.checkRanges = checkRanges;

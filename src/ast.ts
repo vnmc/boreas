@@ -22,12 +22,16 @@ export interface IASTWalker
 // HELPER FUNCTIONS
 // ==================================================================
 
-function setRangeFromChildren(range: T.ISourceRange, children: T.INode[])
+function setRangeFromChildren(range: T.ISourceRange, children: T.INodeOrToken[])
 {
-	var len = children.length,
+	var len: number,
 		firstChildRange: T.ISourceRange,
 		lastChildRange: T.ISourceRange;
 
+	if (!children)
+		return;
+
+	len = children.length;
 	if (len === 0)
 		return;
 
@@ -425,13 +429,21 @@ export class BlockComponentValue extends ComponentValueList
 		this._startToken = startToken;
 		this._endToken = endToken;
 
-		this._startToken.parent = this;
-		this._endToken.parent = this;
+		if (this._startToken)
+		{
+			this._startToken.parent = this;
 
-		this.range.startLine = this._startToken.range.startLine;
-		this.range.startColumn = this._startToken.range.startColumn;
-		this.range.endLine = this._endToken.range.endLine;
-		this.range.endColumn = this._endToken.range.endColumn;
+			this.range.startLine = this._startToken.range.startLine;
+			this.range.startColumn = this._startToken.range.startColumn;
+		}
+
+		if (this._endToken)
+		{
+			this._endToken.parent = this;
+
+			this.range.endLine = this._endToken.range.endLine;
+			this.range.endColumn = this._endToken.range.endColumn;
+		}
 	}
 
 	getTokens(): Tokenizer.Token[]
@@ -517,6 +529,12 @@ export class FunctionArgumentValue extends ComponentValueList
 		if (this._separator)
 		{
 			this._separator.parent = this;
+
+			if (!values || values.length === 0)
+			{
+				this.range.startLine = this._separator.range.startLine;
+				this.range.startColumn = this._separator.range.startColumn;
+			}
 
 			this.range.endLine = this._separator.range.endLine;
 			this.range.endColumn = this._separator.range.endColumn;
@@ -804,35 +822,32 @@ export class Rule extends AbstractRule
 
 	constructor(selectors?: SelectorList, declarations?: DeclarationList)
 	{
+		var t: T.INodeOrToken;
+
 		super();
 
 		this._selectors = selectors;
 		this._declarations = declarations;
 
+		// set parents
 		if (this._selectors)
-		{
 			this._selectors._parent = this;
-
-			this.range.startLine = this._selectors.range.startLine;
-			this.range.startColumn = this._selectors.range.startColumn;
-			if (!this._declarations)
-			{
-				this.range.endLine = this._selectors.range.endLine;
-				this.range.endColumn = this._selectors.range.endColumn;
-			}
-		}
-
 		if (this._declarations)
-		{
 			this._declarations._parent = this;
 
-			if (!this._selectors)
-			{
-				this.range.startLine = this._declarations.range.startLine;
-				this.range.startColumn = this._declarations.range.startColumn;
-			}
-			this.range.endLine = this._declarations.range.endLine;
-			this.range.endColumn = this._declarations.range.endColumn;
+		// set range
+		t = selectors || declarations;
+		if (t)
+		{
+			this.range.startLine = t.range.startLine;
+			this.range.startColumn = t.range.startColumn;
+		}
+
+		t = declarations || selectors;
+		if (t)
+		{
+			this.range.endLine = t.range.endLine;
+			this.range.endColumn = t.range.endColumn;
 		}
 	}
 
@@ -842,6 +857,7 @@ export class Rule extends AbstractRule
 
 		rule._tokens = tokens;
 		rule._hasError = true;
+		setRangeFromChildren(rule.range, tokens);
 
 		return rule;
 	}
@@ -1101,6 +1117,12 @@ export class Selector extends ComponentValueList
 			{
 				this._separator.parent = this;
 
+				if (!this._children || this._children.length === 0)
+				{
+					this.range.startLine = this._separator.range.startLine;
+					this.range.startColumn = this._separator.range.startColumn;
+				}
+
 				this.range.endLine = this._separator.range.endLine;
 				this.range.endColumn = this._separator.range.endColumn;
 			}
@@ -1113,6 +1135,7 @@ export class Selector extends ComponentValueList
 
 		selector._tokens = tokens;
 		selector._hasError = true;
+		setRangeFromChildren(selector.range, tokens);
 
 		return selector;
 	}
@@ -1193,8 +1216,8 @@ export class Selector extends ComponentValueList
 
 export class DeclarationList extends ASTNodeList<Declaration>
 {
-	_lbrace: Tokenizer.Token;
-	_rbrace: Tokenizer.Token;
+	private _lbrace: Tokenizer.Token;
+	private _rbrace: Tokenizer.Token;
 
 	constructor(declarations: Declaration[], lbrace?: Tokenizer.Token, rbrace?: Tokenizer.Token)
 	{
@@ -1378,6 +1401,8 @@ export class Declaration extends ASTNode
 	// TODO: allow construction from a name string and a DeclarationValue
 	constructor(name: ComponentValueList, colon: Tokenizer.Token, value: DeclarationValue, semicolon: Tokenizer.Token, disabled?: boolean)
 	{
+		var t: T.INodeOrToken;
+
 		super();
 
 		this._name = name;
@@ -1386,36 +1411,40 @@ export class Declaration extends ASTNode
 		this._semicolon = semicolon;
 		this._disabled = !!disabled;
 
+		// set parents
 		if (name)
-		{
 			this._name._parent = this;
-			this.range.startLine = name.range.startLine;
-			this.range.startColumn = name.range.startColumn;
-		}
-
-		if (semicolon)
-		{
-			this._semicolon.parent = this;
-			this.range.endLine = semicolon.range.endLine;
-			this.range.endColumn = semicolon.range.endColumn;
-		}
-		else if (value)
-		{
-			this.range.endLine = value.range.endLine;
-			this.range.endColumn = value.range.endColumn;
-		}
-
 		if (colon)
 			this._colon.parent = this;
 		if (value)
 			this._value._parent = this;
+		if (semicolon)
+			this._semicolon.parent = this;
+
+		// set range
+		t = name || colon || value || semicolon;
+		if (t)
+		{
+			this.range.startLine = t.range.startLine;
+			this.range.startColumn = t.range.startColumn;
+		}
+
+		t = semicolon || value || colon || name;
+		if (t)
+		{
+			this.range.endLine = t.range.endLine;
+			this.range.endColumn = t.range.endColumn;
+		}
 	}
 
 	static fromErrorTokens(tokens: Tokenizer.Token[]): Declaration
 	{
 		var decl = new Declaration(null, null, null, null);
+
 		decl._tokens = tokens;
 		decl._hasError = true;
+		setRangeFromChildren(decl.range, tokens);
+
 		return decl;
 	}
 
@@ -1659,34 +1688,35 @@ export class AtRule extends AbstractRule
 
 	constructor(atKeyword: Tokenizer.Token, prelude?: ComponentValueList, block?: ASTNode)
 	{
+		var t: T.INodeOrToken;
+
 		super();
 
 		this._atKeyword = atKeyword;
 		this._prelude = prelude;
 		this._block = block;
 
-		this._atKeyword.parent = this;
+		// set parents
+		if (this._atKeyword)
+			this._atKeyword.parent = this;
 		if (this._prelude)
 			this._prelude._parent = this;
 		if (this._block)
 			this._block._parent = this;
 
-		this.range.startLine = this._atKeyword.range.startLine;
-		this.range.startColumn = this._atKeyword.range.startColumn;
-		if (this._block)
+		// set range
+		t = atKeyword || prelude || block;
+		if (t)
 		{
-			this.range.endLine = this._block.range.endLine;
-			this.range.endColumn = this._block.range.endColumn;
+			this.range.startLine = t.range.startLine;
+			this.range.startColumn = t.range.startColumn;
 		}
-		else if (this._prelude)
+
+		t = block || prelude || atKeyword;
+		if (t)
 		{
-			this.range.endLine = this._prelude.range.endLine;
-			this.range.endColumn = this._prelude.range.endColumn;
-		}
-		else
-		{
-			this.range.endLine = this._atKeyword.range.endLine;
-			this.range.endColumn = this._atKeyword.range.endColumn;
+			this.range.endLine = t.range.endLine;
+			this.range.endColumn = t.range.endColumn;
 		}
 	}
 

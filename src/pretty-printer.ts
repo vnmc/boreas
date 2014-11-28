@@ -101,46 +101,47 @@ function trailingSpace(s: string): string
     return (s[s.length - 1] === ' ') ? s : s + ' ';
 }
 
+function beautifyTokenComments(triviaToken: Tokenizer.Token[])
+{
+    var s = '',
+        len: number,
+        i: number,
+        t: Tokenizer.Token,
+        prevWasComment = false;
+
+    if (!triviaToken)
+        return '';
+
+    len = triviaToken.length;
+    for (i = 0; i < len; i++)
+    {
+        t = triviaToken[i];
+
+        if (t.token === Tokenizer.EToken.COMMENT)
+        {
+            if (prevWasComment)
+                s += ' ';
+            s += t.src;
+            prevWasComment = true;
+        }
+        else
+        {
+            s += ' ';
+            prevWasComment = false;
+        }
+    }
+
+    return s;
+}
+
 function beautifyToken(token: Tokenizer.Token, prev: string): string
 {
-    var beautifyComments = function(triviaToken: Tokenizer.Token[])
-    {
-        var s = '',
-            len: number,
-            i: number,
-            t: Tokenizer.Token,
-            prevWasComment = false;
-
-        if (!triviaToken)
-            return '';
-
-        len = triviaToken.length;
-        for (i = 0; i < len; i++)
-        {
-            t = triviaToken[i];
-
-            if (t.token === Tokenizer.EToken.COMMENT)
-            {
-                if (prevWasComment)
-                    s += ' ';
-                s += t.src;
-                prevWasComment = true;
-            }
-            else
-            {
-                s += ' ';
-                prevWasComment = false;
-            }
-        }
-
-        return s;
-    };
-
+    var ret: string;
 
     if (!token)
         return '';
 
-    var ret = beautifyComments(token.leadingTrivia) + token.src + beautifyComments(token.trailingTrivia);
+    ret = beautifyTokenComments(token.leadingTrivia) + token.src + beautifyTokenComments(token.trailingTrivia);
 
     switch (token.token)
     {

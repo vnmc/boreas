@@ -38,7 +38,7 @@ export var atRules: IAtRuleSpec[] = <IAtRuleSpec[]> [
 	{ keyword: 'charset', astClass: AST.AtCharset, type: EAtRule.SIMPLE },
 	{ keyword: 'custommedia', astClass: AST.AtCustomMedia, type: EAtRule.SIMPLE },
 	{ keyword: 'document', astClass: AST.AtDocument, type: EAtRule.RULE_LIST },
-	{ keyword: 'fontface', astClass: AST.AtFontFace, type: EAtRule.DECLARATION_LIST },
+	{ keyword: 'font-face', astClass: AST.AtFontFace, type: EAtRule.DECLARATION_LIST },
 	{ keyword: 'host', astClass: AST.AtHost, type: EAtRule.RULE_LIST },
 	{ keyword: 'import', astClass: AST.AtImport, type: EAtRule.SIMPLE },
 	{ keyword: 'keyframes', astClass: AST.AtKeyframes, type: EAtRule.RULE_LIST },
@@ -67,7 +67,8 @@ export class Parser
 	 */
 	parseStyleSheet(): AST.StyleSheet
 	{
-		return <AST.StyleSheet> new AST.StyleSheet(this.parseRuleList(false, true));
+		var ruleList = this.parseRuleList(false, true);
+		return ruleList ? <AST.StyleSheet> new AST.StyleSheet(ruleList) : null;
 	}
 
 	/**
@@ -87,7 +88,8 @@ export class Parser
 	 */
 	parseRuleList(isBlock?: boolean, isTopLevel?: boolean): AST.RuleList
 	{
-		var rules: AST.AbstractRule[] = [],
+		var rule: AST.AbstractRule,
+			rules: AST.AbstractRule[] = [],
 			lbrace: Tokenizer.Token = null,
 			rbrace: Tokenizer.Token = null,
 			token: Tokenizer.EToken;
@@ -125,7 +127,9 @@ export class Parser
 				{
 					try
 					{
-						rules.push(this.parseQualifiedRule());
+						rule = this.parseQualifiedRule();
+						if (rule)
+							rules.push(rule);
 					}
 					catch (e)
 					{
@@ -139,7 +143,9 @@ export class Parser
 				// If anything is returned, append it to the list of rules.
 				try
 				{
-					rules.push(this.parseAtRule());
+					rule = this.parseAtRule();
+					if (rule)
+						rules.push(rule);
 				}
 				catch (e)
 				{
@@ -152,7 +158,9 @@ export class Parser
 				// If anything is returned, append it to the list of rules.
 				try
 				{
-					rules.push(this.parseQualifiedRule());
+					rule = this.parseQualifiedRule();
+					if (rule)
+						rules.push(rule);
 				}
 				catch (e)
 				{
@@ -161,7 +169,7 @@ export class Parser
 			}
 		}
 
-		return new AST.RuleList(rules, lbrace, rbrace);
+		return (rules.length > 0 || lbrace || rbrace ) ? new AST.RuleList(rules.length > 0 ? rules : null, lbrace, rbrace) : null;
 	}
 
 	/**
@@ -170,7 +178,8 @@ export class Parser
 	 */
 	parseQualifiedRule(): AST.Rule
 	{
-		var selectors = [],
+		var selector: AST.Selector,
+			selectors = [],
 			selectorList: AST.SelectorList = null,
 			declarationList: AST.DeclarationList = null,
 			token: Tokenizer.EToken;
@@ -191,7 +200,8 @@ export class Parser
 			{
 				// Consume a simple block and assign it to the qualified rule’s block.
 				// Return the qualified rule.
-				selectorList = new AST.SelectorList(selectors);
+				if (selectors.length > 0)
+					selectorList = new AST.SelectorList(selectors);
 				declarationList = this.parseDeclarationList();
 				break;
 			}
@@ -199,10 +209,12 @@ export class Parser
 			// anything else:
 			// Reconsume the current input token. Consume a component value.
 			// Append the returned value to the qualified rule’s prelude.
-			selectors.push(this.parseSelector());
+			selector = this.parseSelector();
+			if (selector)
+				selectors.push(selector);
 		}
 
-		return new AST.Rule(selectorList, declarationList);
+		return (selectorList || declarationList) ? new AST.Rule(selectorList, declarationList) : null;
 	}
 
 	/**
@@ -213,7 +225,8 @@ export class Parser
 	{
 		var atKeyword = this._currentToken,
 			spec = this.getAtRuleSpec(atKeyword),
-			prelude: AST.ComponentValue[],
+			preludeValues: AST.ComponentValue[],
+			prelude: AST.ComponentValueList = undefined,
 			block: AST.ASTNode,
 			t: Tokenizer.Token,
 			token: Tokenizer.EToken;
@@ -221,7 +234,9 @@ export class Parser
 		// consume the @<rule> token
 		this.nextToken();
 
-		prelude = this.parseComponentValueList(Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.LBRACE);
+		preludeValues = this.parseComponentValueList(Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.LBRACE);
+		if (preludeValues && preludeValues.length > 0)
+			prelude = new AST.ComponentValueList(preludeValues);
 
 		if (spec)
 		{
@@ -230,7 +245,7 @@ export class Parser
 			else if (spec.type === EAtRule.RULE_LIST)
 				block = this.parseRuleBlock();
 
-			return new spec.astClass(atKeyword, new AST.ComponentValueList(prelude), block);
+			return (atKeyword || prelude || block) ? new spec.astClass(atKeyword, prelude, block) : null;
 		}
 
 		// not a registered at-rule: create a generic at-rule object
@@ -255,7 +270,7 @@ export class Parser
 			}
 		}
 
-		return new AST.AtRule(atKeyword, new AST.ComponentValueList(prelude), block);
+		return (atKeyword || prelude || block) ? new AST.AtRule(atKeyword, prelude, block) : null;
 	}
 
 	/**
@@ -267,6 +282,7 @@ export class Parser
 		var lbrace: Tokenizer.Token,
 			rbrace: Tokenizer.Token,
 			token: Tokenizer.EToken,
+			declaration: AST.Declaration,
 			declarations: AST.Declaration[] = [];
 
 		// consume '{'
@@ -292,16 +308,17 @@ export class Parser
 			// Consume a component value and append it to the value of the block.
 			try
 			{
-				declarations.push(this.parseDeclaration());
+				declaration = this.parseDeclaration();
+				if (declaration)
+					declarations.push(declaration);
 			}
 			catch (e)
 			{
-				declarations.push(AST.Declaration.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.RBRACE ], [])));
-				// XX break;
+				declarations.push(AST.Declaration.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.SEMICOLON ], [])));
 			}
 		}
 
-		return new AST.DeclarationList(declarations, lbrace, rbrace);
+		return new AST.DeclarationList(declarations.length > 0 ? declarations : null, lbrace, rbrace);
 	}
 
 	/**
@@ -310,12 +327,14 @@ export class Parser
 	 */
 	parseDeclaration(): AST.Declaration
 	{
-		var name: AST.ComponentValueList,
+		var nameValues: AST.ComponentValue[],
+			name: AST.ComponentValueList,
 			colon: Tokenizer.Token,
 			value: AST.DeclarationValue,
 			semicolon: Tokenizer.Token;
 
-		name = new AST.ComponentValueList(this.parseComponentValueList(Tokenizer.EToken.COLON, Tokenizer.EToken.SEMICOLON));
+		nameValues = this.parseComponentValueList(Tokenizer.EToken.COLON, Tokenizer.EToken.SEMICOLON);
+		name = nameValues && nameValues.length > 0 ? new AST.ComponentValueList(nameValues) : null;
 
 		// If the current input token is anything other than a <colon-token>,
 		// this is a parse error. Return nothing.
@@ -333,7 +352,7 @@ export class Parser
 			this.nextToken();
 		}
 
-		return new AST.Declaration(name, colon, value, semicolon);
+		return (name || colon || value || semicolon) ? new AST.Declaration(name, colon, value, semicolon) : null;
 	}
 
 	/**
@@ -342,7 +361,8 @@ export class Parser
 	 */
 	parseDeclarationValue(): AST.DeclarationValue
 	{
-		return new AST.DeclarationValue(this.parseComponentValueList(Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.RBRACE));
+		var values = this.parseComponentValueList(Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.RBRACE);
+		return values && values.length > 0 ? new AST.DeclarationValue(values) : null;
 	}
 
 	/**
@@ -351,7 +371,8 @@ export class Parser
 	 */
 	parseSelectorList(): AST.SelectorList
 	{
-		var selectors: AST.Selector[] = [],
+		var selector: AST.Selector,
+			selectors: AST.Selector[] = [],
 			t: Tokenizer.Token,
 			token: Tokenizer.EToken;
 
@@ -363,10 +384,14 @@ export class Parser
 			if (token === Tokenizer.EToken.EOF || token === Tokenizer.EToken.LBRACE)
 				break;
 			else
-				selectors.push(this.parseSelector());
+			{
+				selector = this.parseSelector();
+				if (selector)
+					selectors.push(selector);
+			}
 		}
 
-		return new AST.SelectorList(selectors);
+		return selectors.length > 0 ? new AST.SelectorList(selectors) : null;
 	}
 
 	/**
@@ -392,7 +417,7 @@ export class Parser
 			return AST.Selector.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.COMMA ], [ Tokenizer.EToken.LBRACE ]));
 		}
 
-		return <AST.Selector> new AST.Selector(values, separator);
+		return ((values && values.length > 0) || separator) ? <AST.Selector> new AST.Selector(values, separator) : null;
 	}
 
 	/**
@@ -401,7 +426,8 @@ export class Parser
 	 */
 	parseComponentValueList(...endTokens: Tokenizer.EToken[]): AST.ComponentValue[]
 	{
-		var values = [],
+		var value: AST.IComponentValue,
+			values = [],
 			t: Tokenizer.Token,
 			token: Tokenizer.EToken;
 
@@ -415,12 +441,16 @@ export class Parser
 					break;
 				else if (token === Tokenizer.EToken.LPAREN || token === Tokenizer.EToken.LBRACKET)
 				{
-					values.push(this.parseBlock());
+					value = this.parseBlock();
+					if (value)
+						values.push(value);
 					t = this._currentToken;
 				}
 				else if (token === Tokenizer.EToken.FUNCTION)
 				{
-					values.push(this.parseFunction());
+					value = this.parseFunction();
+					if (value)
+						values.push(value);
 					t = this._currentToken;
 				}
 				else
@@ -448,6 +478,7 @@ export class Parser
 			token = startToken.token,
 			endingToken = undefined,
 			t: Tokenizer.Token,
+			value: AST.IComponentValue,
 			values: AST.IComponentValue[] = [];
 
 		if (token === Tokenizer.EToken.LBRACE)
@@ -477,12 +508,16 @@ export class Parser
 				}
 				else if (token === Tokenizer.EToken.LPAREN || token === Tokenizer.EToken.LBRACKET || token === Tokenizer.EToken.LBRACE)
 				{
-					values.push(this.parseBlock());
+					value = this.parseBlock();
+					if (value)
+						values.push(value);
 					t = this._currentToken;
 				}
 				else if (token === Tokenizer.EToken.FUNCTION)
 				{
-					values.push(this.parseFunction());
+					value = this.parseFunction();
+					if (value)
+						values.push(value);
 					t = this._currentToken;
 				}
 				else
@@ -549,11 +584,12 @@ export class Parser
 					t = this.nextToken();
 				}
 
-				args.push(new AST.FunctionArgumentValue(arg, separator));
+				if (arg && arg.length > 0)
+					args.push(new AST.FunctionArgumentValue(arg, separator));
 			}
 		}
 
-		return new AST.FunctionComponentValue(name, t, args);
+		return (name || t || (args.length > 0)) ? new AST.FunctionComponentValue(name, t, args) : null;
 	}
 
 	/**

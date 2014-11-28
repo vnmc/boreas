@@ -1,8 +1,10 @@
-var should = require('should');
+require('should');
+
 var Fs = require('fs');
 var Path = require('path');
 
 var P = require('../lib/parser');
+var Utils = require('./utils');
 
 
 var dir = 'fixtures';
@@ -13,6 +15,7 @@ function checkFile(file)
     var ast = new P.Parser(src).parseStyleSheet();
 
     ast.toString().should.eql(src);
+    Utils.checkRanges(ast);
 }
 
 describe('CSS Parser should parse and unparse', function()
