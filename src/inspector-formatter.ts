@@ -9,8 +9,8 @@ export function toJSON(node: T.INode): any
         if (ast instanceof AST.Rule)
         {
             return {
-                selectorList: (<AST.Rule> ast).selectors.walk(walker),
-                style: (<AST.Rule> ast).declarations.walk(walker)
+                selectorList: (<AST.Rule> ast).getSelectors().walk(walker),
+                style: (<AST.Rule> ast).getDeclarations().walk(walker)
             };
         }
 
@@ -41,10 +41,13 @@ export function toJSON(node: T.INode): any
 
         if (ast instanceof AST.Declaration)
         {
+            var name = (<AST.Declaration> ast).getName();
+            var value = (<AST.Declaration> ast).getValue();
+
             return {
-                name: ((<AST.Declaration> ast).name && (<AST.Declaration> ast).name.toString().trim()) || '',
-                value: ((<AST.Declaration> ast).value && (<AST.Declaration> ast).value.getText()) || '',
-                important: ((<AST.Declaration> ast).value && (<AST.Declaration> ast).value.getImportant()) || false,
+                name: (name && name.toString().trim()) || '',
+                value: (value && value.getText()) || '',
+                important: (value && value.getImportant()) || false,
                 disabled: (<AST.Declaration> ast).getDisabled(),
                 text: ast.toString().trim(),
                 range: ast.range

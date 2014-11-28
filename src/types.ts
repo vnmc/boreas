@@ -8,13 +8,13 @@ import AST = require('./ast');
 
 export interface INodeOrToken
 {
+	getParent: () => INode;
 	range: ISourceRange;
 	toString: () => string;
 }
 
 export interface INode extends INodeOrToken
 {
-	getParent: () => INode;
 	getChildren: () => INode[];
 	isAncestorOf: (node: INode) => boolean;
 
@@ -23,8 +23,6 @@ export interface INode extends INodeOrToken
 	walk: (walker: AST.IASTWalker) => any;
 
 	hasError: () => boolean;
-
-	beautify: (level?: number) => string;
 }
 
 export interface ISourceRange

@@ -6,6 +6,26 @@ import T = require('./types');
 import AST = require('./ast');
 
 
+var _hasTrim = typeof String.prototype.trim === 'function';
+
+
+export function trim(s: string): string
+{
+	if (_hasTrim)
+		return s.trim();
+	return s.replace(/^\s+|\s+$/g, '');
+}
+
+export function trimLeft(s: string): string
+{
+	return s.replace(/^\s+/, '');
+}
+
+export function trimRight(s: string): string
+{
+	return s.replace(/\s+$/, '');
+}
+
 export function getLineStartIndices(text: string): number[]
 {
 	var lineStartIndices = [];

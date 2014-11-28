@@ -173,6 +173,7 @@ export class Token implements T.INodeOrToken
 	range: T.ISourceRange;
 	leadingTrivia: Token[];
 	trailingTrivia: Token[];
+	parent: T.INode;
 
 	constructor(token: number, range: T.ISourceRange, src?: string, value?: any, unit?: string, type?: string, start?: number, end?: number)
 	{
@@ -192,6 +193,11 @@ export class Token implements T.INodeOrToken
 
 		if (end !== undefined)
 			this.end = end;
+	}
+
+	getParent(): T.INode
+	{
+		return this.parent;
 	}
 
 	getPrologue(): string
@@ -241,38 +247,6 @@ export class Token implements T.INodeOrToken
 		return this.getPrologue() + this.src + this.getEpilogue();
 	}
 
-	beautify(): string
-	{
-		/*
-		var v: string;
-		switch (this.token)
-		{
-		case EToken.DELIM:
-			v = this.value;
-			if (v !== '.' || v !== '*')
-				return this.src;
-			return ' ' + this.src + ' ';
-
-		case EToken.LPAREN:
-			return ' ' + this.src;
-
-		case EToken.COLON:
-		case EToken.RPAREN:
-			return this.src + ' ';
-
-		case EToken.INCLUDE_MATCH:
-		case EToken.DASH_MATCH:
-		case EToken.PREFIX_MATCH:
-		case EToken.SUFFIX_MATCH:
-		case EToken.SUBSTRING_MATCH:
-		case EToken.COLUMN:
-			return ' ' + this.src + ' ';
-		}
-*/
-
-		return this.beautifyComments(this.leadingTrivia) + this.src + this.beautifyComments(this.trailingTrivia);
-	}
-
 	private triviaToString(triviaToken: Token[]): string
 	{
 		var s = '',
@@ -285,35 +259,6 @@ export class Token implements T.INodeOrToken
 		len = triviaToken.length;
 		for (i = 0; i < len; i++)
 			s += triviaToken[i].src;
-
-		return s;
-	}
-
-	private beautifyComments(triviaToken: Token[]): string
-	{
-		var s = '',
-			len: number,
-			i: number,
-			t: Token,
-			prevWasComment = false;
-
-		if (!triviaToken)
-			return '';
-
-		len = triviaToken.length;
-		for (i = 0; i < len; i++)
-		{
-			t = triviaToken[i];
-
-			if (prevWasComment)
-				s += ' ';
-
-			if (t.token === EToken.COMMENT)
-			{
-				s += t.src;
-				prevWasComment = true;
-			}
-		}
 
 		return s;
 	}
