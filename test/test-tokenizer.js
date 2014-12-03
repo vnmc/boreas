@@ -362,4 +362,35 @@ describe('CSS-Tokenizer', function()
 		token.token.should.eql(T.EToken.DELIM);
 		token.src.should.eql('?');
 	});
+
+	it('should tokenize comments if tokenizeComments===true', function()
+	{
+		var t = new Tokenizer('/* color: red; */ xxx', true);
+
+		var token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token.src.should.eql('/*');
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+		token.src.should.eql('color');
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.COLON);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+		token.src.should.eql('red');
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.SEMICOLON);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token.src.should.eql('*/');
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+		token.src.should.eql('xxx');
+	});
 });

@@ -12,7 +12,9 @@ var dir = 'fixtures';
 function checkFile(file)
 {
     var src = Fs.readFileSync(file, 'utf8');
+    var start = Date.now();
     var ast = new P.Parser(src).parseStyleSheet();
+    console.log(Date.now() - start);
 
     ast.toString().should.eql(src);
     Utils.checkRanges(ast);

@@ -4,7 +4,7 @@ import AST = require('./ast');
 
 export function toJSON(node: T.INode): any
 {
-    return node.walk(function(ast: T.INodeOrToken, descend: () => any[], walker: AST.IASTWalker): any
+    return node.walk(function(ast: T.INode, descend: () => any[], walker: AST.IASTWalker): any
     {
         if (ast instanceof AST.Rule)
         {

@@ -6,23 +6,19 @@ import AST = require('./ast');
 // TYPE DECLARATIONS
 // ==================================================================
 
-export interface INodeOrToken
+export interface INode
 {
-	getParent: () => INode;
 	range: ISourceRange;
-	toString: () => string;
-}
 
-export interface INode extends INodeOrToken
-{
+	getParent: () => INode;
 	getChildren: () => INode[];
 	isAncestorOf: (node: INode) => boolean;
 
 	getTokens: () => Tokenizer.Token[];
-
 	walk: (walker: AST.IASTWalker) => any;
 
 	hasError: () => boolean;
+	toString: () => string;
 }
 
 export interface ISourceRange

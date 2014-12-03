@@ -4,6 +4,7 @@
 
 import AST = require('./ast');
 import Tokenizer = require('./tokenizer');
+import Utilities = require('./utilities');
 
 
 // ==================================================================
@@ -55,9 +56,9 @@ export class Parser
 	private _currentToken: Tokenizer.Token = null;
 
 
-	constructor(src: string)
+	constructor(src: string, options?: Tokenizer.ITokenizerOptions)
 	{
-		this._tokenizer = new Tokenizer.Tokenizer(src || '');
+		this._tokenizer = new Tokenizer.Tokenizer(src || '', options);
 		this.nextToken();
 	}
 
@@ -283,11 +284,16 @@ export class Parser
 			rbrace: Tokenizer.Token,
 			token: Tokenizer.EToken,
 			declaration: AST.Declaration,
-			declarations: AST.Declaration[] = [];
+			disabledDeclarations: AST.Declaration[],
+			declarations: AST.Declaration[] = [],
+			prevIsDeclaration = false;
 
 		// consume '{'
 		this.expect(Tokenizer.EToken.LBRACE);
 		lbrace = this._currentToken;
+		disabledDeclarations = this.parseTrailingTokensForDisabledDeclarations(lbrace);
+		if (disabledDeclarations && disabledDeclarations.length > 0)
+			declarations = declarations.concat(disabledDeclarations);
 		this.nextToken();
 
 		// Repeatedly consume the next input token and process it as follows:
@@ -303,18 +309,30 @@ export class Parser
 				this.nextToken();
 				break;
 			}
-
-			// Reconsume the current input token.
-			// Consume a component value and append it to the value of the block.
-			try
+			else if (prevIsDeclaration && token === Tokenizer.EToken.SEMICOLON)
 			{
-				declaration = this.parseDeclaration();
-				if (declaration)
-					declarations.push(declaration);
+				disabledDeclarations = this.parseTrailingTokensForDisabledDeclarations(this._currentToken);
+				if (disabledDeclarations && disabledDeclarations.length > 0)
+					declarations = declarations.concat(disabledDeclarations);
+				this.nextToken();
+				prevIsDeclaration = false;
 			}
-			catch (e)
+			else
 			{
-				declarations.push(AST.Declaration.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.SEMICOLON ], [])));
+				// Reconsume the current input token.
+				// Consume a component value and append it to the value of the block.
+				try
+				{
+					declaration = this.parseDeclaration(true);
+					if (declaration)
+						declarations.push(declaration);
+					prevIsDeclaration = !!declaration;
+				}
+				catch (e)
+				{
+					declarations.push(AST.Declaration.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.SEMICOLON ], [])));
+					prevIsDeclaration = false;
+				}
 			}
 		}
 
@@ -325,13 +343,22 @@ export class Parser
 	 *
 	 * @returns {AST.Declaration}
 	 */
-	parseDeclaration(): AST.Declaration
+	parseDeclaration(omitSemicolon?: boolean): AST.Declaration
 	{
-		var nameValues: AST.ComponentValue[],
+		var t = this._currentToken,
+			nameValues: AST.ComponentValue[],
 			name: AST.ComponentValueList,
 			colon: Tokenizer.Token,
 			value: AST.DeclarationValue,
-			semicolon: Tokenizer.Token;
+			semicolon: Tokenizer.Token,
+			lcomment: Tokenizer.Token,
+			rcomment: Tokenizer.Token;
+
+		if (t.token === Tokenizer.EToken.DELIM && t.src === '/*')
+		{
+			lcomment = t;
+			this.nextToken();
+		}
 
 		nameValues = this.parseComponentValueList(Tokenizer.EToken.COLON, Tokenizer.EToken.SEMICOLON);
 		name = nameValues && nameValues.length > 0 ? new AST.ComponentValueList(nameValues) : null;
@@ -349,10 +376,89 @@ export class Parser
 		if (this._currentToken.token === Tokenizer.EToken.SEMICOLON)
 		{
 			semicolon = this._currentToken;
-			this.nextToken();
+			if (!omitSemicolon)
+				this.nextToken();
 		}
 
-		return (name || colon || value || semicolon) ? new AST.Declaration(name, colon, value, semicolon) : null;
+		if (!omitSemicolon)
+		{
+			t = this._currentToken;
+			if (t.token === Tokenizer.EToken.DELIM && t.src === '*/')
+			{
+				rcomment = t;
+				this.nextToken();
+			}
+		}
+
+		return (name || colon || value || semicolon) ? new AST.Declaration(name, colon, value, semicolon, lcomment, rcomment) : null;
+	}
+
+	parseTrailingTokensForDisabledDeclarations(token: Tokenizer.Token): AST.Declaration[]
+	{
+		var declarations: AST.Declaration[],
+			declaration: AST.Declaration,
+			originalTrailingTrivia: Tokenizer.Token[],
+			lastTrailingTrivia: Tokenizer.Token[],
+			len: number,
+			i: number,
+			t: Tokenizer.Token,
+			tokens: Tokenizer.Token[],
+			lastToken: Tokenizer.Token;
+
+		if (!token.trailingTrivia)
+			return null;
+
+		declarations = [];
+		originalTrailingTrivia = token.trailingTrivia.slice(0);
+		len = originalTrailingTrivia.length;
+		lastTrailingTrivia = token.trailingTrivia = [];
+
+		for (i = 0; i < len; i++)
+		{
+			t = originalTrailingTrivia[i];
+			if (t.token === Tokenizer.EToken.COMMENT)
+			{
+				declaration = this.parseDisabledDeclaration(t);
+				if (declaration)
+				{
+					declarations.push(declaration);
+
+					tokens = declaration.getTokens();
+					lastToken = tokens[tokens.length - 1];
+					if (!lastToken.trailingTrivia)
+						lastToken.trailingTrivia = [];
+					lastTrailingTrivia = lastToken.trailingTrivia;
+
+					continue;
+				}
+			}
+
+			lastTrailingTrivia.push(t);
+		}
+
+		return declarations;
+	}
+
+	parseDisabledDeclaration(token: Tokenizer.Token): AST.Declaration
+	{
+		var declaration: AST.Declaration;
+
+		if (token.token !== Tokenizer.EToken.COMMENT)
+			return null;
+
+		try
+		{
+			declaration = new Parser(token.src, { tokenizeComments: true }).parseDeclaration();
+			if (declaration)
+				Utilities.offsetRange(declaration, token.range.startLine, token.range.startColumn);
+		}
+		catch (e)
+		{
+			// ignore if there is a parse error
+			return null;
+		}
+
+		return declaration;
 	}
 
 	/**
@@ -429,7 +535,8 @@ export class Parser
 		var value: AST.IComponentValue,
 			values = [],
 			t: Tokenizer.Token,
-			token: Tokenizer.EToken;
+			token: Tokenizer.EToken,
+			prevToken: Tokenizer.Token;
 
 		try
 		{
@@ -452,6 +559,21 @@ export class Parser
 					if (value)
 						values.push(value);
 					t = this._currentToken;
+				}
+				else if (token === Tokenizer.EToken.DELIM && t.src === '!')
+				{
+					prevToken = t;
+					t = this.nextToken();
+
+					if (t.token === Tokenizer.EToken.IDENT && t.src.toLowerCase() === 'important')
+						values.push(new AST.ImportantComponentValue(prevToken, t));
+					else
+					{
+						values.push(new AST.ComponentValue(prevToken));
+						values.push(new AST.ComponentValue(t));
+					}
+
+					t = this.nextToken();
 				}
 				else
 				{

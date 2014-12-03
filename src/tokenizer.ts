@@ -3,11 +3,19 @@
 // ==================================================================
 
 import T = require('./types');
+import AST = require('./ast');
 
 
 // ==================================================================
 // TYPE DECLARATIONS
 // ==================================================================
+
+export interface ITokenizerOptions
+{
+	tokenizeComments?: boolean;
+	lineBase?: number;
+	columnBase?: number;
+}
 
 export enum EToken
 {
@@ -161,7 +169,7 @@ function isEscape(c: string): boolean
 // TOKENIZER IMPLEMENTATION
 // ==================================================================
 
-export class Token implements T.INodeOrToken
+export class Token implements T.INode
 {
 	token: number;
 	src: string;
@@ -198,6 +206,26 @@ export class Token implements T.INodeOrToken
 	getParent(): T.INode
 	{
 		return this.parent;
+	}
+
+	getChildren(): T.INode[]
+	{
+		return [];
+	}
+
+	getTokens(): Token[]
+	{
+		return [ this ];
+	}
+
+	isAncestorOf(node: T.INode)
+	{
+		return false;
+	}
+
+	walk(walker: AST.IASTWalker): any
+	{
+		return walker(this, () => undefined, walker);
 	}
 
 	getPrologue(): string
@@ -242,6 +270,11 @@ export class Token implements T.INodeOrToken
 		return false;
 	}
 
+	hasError(): boolean
+	{
+		return false;
+	}
+
 	toString(): string
 	{
 		return this.getPrologue() + this.src + this.getEpilogue();
@@ -267,21 +300,38 @@ export class Token implements T.INodeOrToken
 
 export class Tokenizer
 {
-	private _src;
+	private _src: string;
 	private _pos = 0;
-	private _line = 1;
-	private _column = 1;
+	private _line = 0;
+	private _column = 0;
 
 	private _startPos: number;
 	private _startLine: number;
 	private _startColumn: number;
 
+	private _options: ITokenizerOptions;
+
 	private _currentToken: Token = null;
 
 
-	constructor(src: string)
+	/**
+	 * Constructs the tokenizer.
+	 *
+	 * @param src The source code to tokenize
+	 * @param options
+	 */
+	constructor(src: string, options?: ITokenizerOptions)
 	{
 		this._src = src;
+		this._options = options || {};
+
+		if (this._options.lineBase === undefined)
+			this._options.lineBase = 0;
+		if (this._options.columnBase === undefined)
+			this._options.columnBase = this._options.lineBase;
+
+		this._line = this._options.lineBase;
+		this._column = this._options.columnBase;
 	}
 
 
@@ -355,9 +405,9 @@ export class Tokenizer
 			token,
 			{
 				startLine: this._startLine,
-				startColumn: this._startColumn,
+				startColumn: Math.max(0, this._startColumn),
 				endLine: this._line,
-				endColumn: this._column
+				endColumn: Math.max(0, this._column)
 			},
 			src || this._src.substring(this._startPos, this._pos),
 			value,
@@ -448,6 +498,11 @@ export class Tokenizer
 				this.nextChar();
 				return this.token(EToken.SUBSTRING_MATCH);
 			}
+			else if (c === '/' && this._options.tokenizeComments)
+			{
+				this.nextChar();
+				return this.token(EToken.DELIM, '*/');
+			}
 
 			return this.token(EToken.DELIM);
 		}
@@ -497,6 +552,12 @@ export class Tokenizer
 
 			if (c === '*')
 			{
+				if (this._options.tokenizeComments)
+				{
+					this.nextChar();
+					return this.token(EToken.DELIM, '/*');
+				}
+
 				for ( ; ; )
 				{
 					c = this.nextChar();
@@ -665,7 +726,7 @@ export class Tokenizer
 
 		if (c === '\r' || (c === '\n' && this._src[this._pos - 1] !== '\r'))
 		{
-			this._column = 0;
+			this._column = this._options.columnBase - 1;
 			++this._line;
 		}
 
@@ -1182,7 +1243,7 @@ export class Tokenizer
 			if (isWhiteSpace(cp))
 			{
 				withWhiteSpace = s + this.consumeWhiteSpace();
-				cp = this._src[this._pos];
+				cp = this._src.charCodeAt(this._pos);
 				if (cp === EChar.RPAREN || isNaN(cp))
 				{
 					this.nextChar();

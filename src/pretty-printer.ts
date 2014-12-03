@@ -9,7 +9,7 @@ export function beautify(node: T.INode)
     var level = 0,
         ret: string,
         token: Tokenizer.EToken,
-        prevAst: T.INodeOrToken = null,
+        prevAst: T.INode = null,
         prevRet: string = null,
         newline = function()
         {
@@ -19,7 +19,7 @@ export function beautify(node: T.INode)
             return s;
         };
 
-    return node.walk(function(ast: T.INodeOrToken, descend: () => any[], walker: AST.IASTWalker): any
+    return node.walk(function(ast: T.INode, descend: () => any[], walker: AST.IASTWalker): any
     {
         // generic result for nodes with errors
         if ((ast instanceof AST.ASTNode) && (<AST.ASTNode> ast).hasError())
@@ -68,9 +68,9 @@ export function beautify(node: T.INode)
         {
             if ((<AST.RuleList> ast).getLBrace())
             {
-                ret = walker((<AST.RuleList> ast).getLBrace(), descend) +
+                ret = (<AST.RuleList> ast).getLBrace().walk(walker) +
                     Utilities.trimRight(join((<AST.RuleList> ast).walkChildren(walker))) +
-                    walker((<AST.RuleList> ast).getRBrace(), descend);
+                    (<AST.RuleList> ast).getRBrace().walk(walker);
             }
             else
                 ret = join(descend());
