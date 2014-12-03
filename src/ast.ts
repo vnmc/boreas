@@ -111,7 +111,7 @@ export function toStringNormalize(tokens: Tokenizer.Token[]): string
 		return '';
 
 	len = tokens.length;
-	for (var i = 0; i < len; i++)
+	for (i = 0; i < len; i++)
 	{
 		token = tokens[i];
 
@@ -793,8 +793,8 @@ export class RuleList extends ASTNodeList<AbstractRule>
 		super(rules);
 
 		// TODO: adjust source ranges
-		this._lbrace = lbrace !== undefined ? lbrace : new Tokenizer.Token(Tokenizer.EToken.LBRACE, new SourceRange());
-		this._rbrace = rbrace !== undefined ? rbrace : new Tokenizer.Token(Tokenizer.EToken.RBRACE, new SourceRange());
+		this._lbrace = lbrace !== undefined ? lbrace : new Tokenizer.Token(Tokenizer.EToken.LBRACE, new SourceRange(), '{');
+		this._rbrace = rbrace !== undefined ? rbrace : new Tokenizer.Token(Tokenizer.EToken.RBRACE, new SourceRange(), '}');
 
 		if (this._lbrace)
 			this._lbrace.parent = this;
@@ -1407,8 +1407,8 @@ export class DeclarationList extends ASTNodeList<Declaration>
 		super(declarations);
 
 		// TODO: adjust source range
-		this._lbrace = lbrace || new Tokenizer.Token(Tokenizer.EToken.LBRACE, new SourceRange());
-		this._rbrace = rbrace || new Tokenizer.Token(Tokenizer.EToken.RBRACE, new SourceRange());
+		this._lbrace = lbrace !== undefined ? lbrace : new Tokenizer.Token(Tokenizer.EToken.LBRACE, new SourceRange(), '{');
+		this._rbrace = rbrace !== undefined ? rbrace : new Tokenizer.Token(Tokenizer.EToken.RBRACE, new SourceRange(), '}');
 
 		if (this._lbrace)
 			this._lbrace.parent = this;
@@ -1900,7 +1900,7 @@ export class DeclarationValue extends ComponentValueList
 				{
 					node = this._nodes[i];
 					if (!(node instanceof ImportantComponentValue))
-						tokens = tokens.concat(node.getToken())
+						tokens = tokens.concat(node.getToken());
 				}
 
 				this._textWithoutImportant = toStringNormalize(tokens);
@@ -2113,7 +2113,7 @@ export class AtCharset extends AtRule
 		if (this._charset === null)
 		{
 			first = this.getPrelude()[0];
-			this._charset = first ? first.getValue() : '';
+			this._charset = first ? (first.getToken().value || first.getValue()) : '';
 		}
 
 		return this._charset;
@@ -2133,32 +2133,47 @@ export class AtCustomMedia extends AtRule
 
 	getExtensionName(): string
 	{
-		var first: ComponentValue;
-
 		if (this._extensionName === null)
-		{
-			first = this.getPrelude()[0];
-			this._extensionName = first ? first.getValue() : '';
-		}
+			this.getExtensionNameAndMedia();
 
 		return this._extensionName;
 	}
 
 	getMedia(): ComponentValueList
 	{
-		var children: T.INode[];
-
 		if (this._media === null)
-		{
-			children = this.getPrelude().getChildren();
-			if (children)
-			{
-				this._media = new ComponentValueList(children.slice(1));
-				this._media._parent = this;
-			}
-		}
+			this.getExtensionNameAndMedia();
 
 		return this._media;
+	}
+
+	private getExtensionNameAndMedia(): void
+	{
+		var children: T.INode[],
+			len: number,
+			i: number,
+			node: T.INode,
+			tokens: Tokenizer.Token[] = [],
+			nodeTokens: Tokenizer.Token[];
+
+		children = this.getPrelude().getChildren();
+		if (children)
+		{
+			len = children.length;
+			for (i = 0; i < len; i++)
+			{
+				node = children[i];
+				nodeTokens = node.getTokens();
+				tokens = tokens.concat(nodeTokens);
+
+				if (nodeTokens && nodeTokens.length > 0 && nodeTokens[nodeTokens.length - 1].hasTrailingWhitespace())
+				{
+					this._extensionName = toStringNormalize(tokens);
+					this._media = new ComponentValueList(children.slice(i + 1));
+					break;
+				}
+			}
+		}
 	}
 }
 
@@ -2188,13 +2203,13 @@ export class AtDocument extends AtRule
 		for (i = 0; i < len; i++)
 		{
 			val = prelude[i];
-			if (val instanceof FunctionComponentValue)
+			if (val instanceof ComponentValue && (<ComponentValue> val).getToken().token === Tokenizer.EToken.URL)
+				this._url = (<ComponentValue> val).getToken().value || (<ComponentValue> val).getValue();
+			else if (val instanceof FunctionComponentValue)
 			{
 				name = (<FunctionComponentValue> val).getName().value.toLowerCase();
 
-				if (name === 'url')
-					this._url = getArg(val);
-				else if (name === 'url-prefix')
+				if (name === 'url-prefix')
 					this._urlPrefix = getArg(val);
 				else if (name === 'domain')
 					this._domain = getArg(val);
@@ -2321,7 +2336,7 @@ export class AtImport extends AtRule
 
 export class AtKeyframes extends AtRule
 {
-	private _animationName: string;
+	private _animationName: string = null;
 
 	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, rules: RuleList)
 	{
@@ -2348,6 +2363,11 @@ export class AtMedia extends AtRule
 	constructor(atKeyword: Tokenizer.Token, media: ComponentValueList, rules: RuleList)
 	{
 		super(atKeyword, media, rules);
+	}
+
+	getMedia(): ComponentValueList
+	{
+		return this.getPrelude();
 	}
 }
 
@@ -2409,6 +2429,11 @@ export class AtPage extends AtRule
 	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, declarations: DeclarationList)
 	{
 		super(atKeyword, prelude, declarations);
+	}
+
+	getPseudoClass(): ComponentValueList
+	{
+		return this.getPrelude();
 	}
 }
 

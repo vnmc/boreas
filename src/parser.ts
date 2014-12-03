@@ -37,7 +37,7 @@ enum EAtRule
 
 export var atRules: IAtRuleSpec[] = <IAtRuleSpec[]> [
 	{ keyword: 'charset', astClass: AST.AtCharset, type: EAtRule.SIMPLE },
-	{ keyword: 'custommedia', astClass: AST.AtCustomMedia, type: EAtRule.SIMPLE },
+	{ keyword: 'custom-media', astClass: AST.AtCustomMedia, type: EAtRule.SIMPLE },
 	{ keyword: 'document', astClass: AST.AtDocument, type: EAtRule.RULE_LIST },
 	{ keyword: 'font-face', astClass: AST.AtFontFace, type: EAtRule.DECLARATION_LIST },
 	{ keyword: 'host', astClass: AST.AtHost, type: EAtRule.RULE_LIST },
@@ -280,8 +280,8 @@ export class Parser
 	 */
 	parseDeclarationList(): AST.DeclarationList
 	{
-		var lbrace: Tokenizer.Token,
-			rbrace: Tokenizer.Token,
+		var lbrace: Tokenizer.Token = null,
+			rbrace: Tokenizer.Token = null,
 			token: Tokenizer.EToken,
 			declaration: AST.Declaration,
 			disabledDeclarations: AST.Declaration[],
