@@ -688,7 +688,7 @@ export class ComponentValue extends ASTNode implements IComponentValue
 
 	walk(walker: IASTWalker): any
 	{
-		return walker(this._token, () => undefined, walker);
+		return this._token.walk(walker);
 	}
 
 	toString(): string
@@ -790,12 +790,12 @@ export class BlockComponentValue extends ComponentValueList
 			var result: any[] = [],
 				r: any;
 
-			if ((r = walker(that._startToken, () => undefined, walker)) !== undefined)
+			if ((r = that._startToken.walk(walker)) !== undefined)
 				result.push(r);
 
 			that.walkChildren(walker, result);
 
-			if ((r = walker(that._endToken, () => undefined, walker)) !== undefined)
+			if ((r = that._endToken.walk(walker)) !== undefined)
 				result.push(r);
 
 			return result;
@@ -836,7 +836,7 @@ export class FunctionArgumentValue extends ComponentValueList
 	private _separator: Tokenizer.Token;
 
 
-	constructor(values: ComponentValue[], separator?: Tokenizer.Token)
+	constructor(values: IComponentValue[], separator?: Tokenizer.Token)
 	{
 		super(values);
 		this._separator = separator;
@@ -902,7 +902,7 @@ export class FunctionArgumentValue extends ComponentValueList
 
 			that.walkChildren(walker, result);
 
-			if (that._separator && (r = walker(that._separator, () => undefined, walker)) !== undefined)
+			if (that._separator && (r = that._separator.walk(walker)) !== undefined)
 				result.push(r);
 
 			return result;
@@ -1005,9 +1005,9 @@ export class ImportantComponentValue extends ASTNode
 			var result: any[] = [],
 				r: any;
 
-			if (that._exclamationMark && (r = walker(that._exclamationMark, () => undefined, walker)) !== undefined)
+			if (that._exclamationMark && (r = that._exclamationMark.walk(walker)) !== undefined)
 				result.push(r);
-			if (that._important && (r = walker(that._important, () => undefined, walker)) !== undefined)
+			if (that._important && (r = that._important.walk(walker)) !== undefined)
 				result.push(r);
 
 			return result;
@@ -1168,12 +1168,12 @@ export class RuleList extends ASTNodeList<AbstractRule>
 			var result: any[] = [],
 				r: any;
 
-			if (that._lbrace && (r = walker(that._lbrace, () => undefined, walker)) !== undefined)
+			if (that._lbrace && (r = that._lbrace.walk(walker)) !== undefined)
 				result.push(r);
 
 			that.walkChildren(walker, result);
 
-			if (that._rbrace && (r = walker(that._rbrace, () => undefined, walker)) !== undefined)
+			if (that._rbrace && (r = that._rbrace.walk(walker)) !== undefined)
 				result.push(r);
 
 			return result;
@@ -1524,7 +1524,7 @@ export class Selector extends ComponentValueList
 	private _text: string = null;
 
 
-	constructor(values: ComponentValue[], separator?: Tokenizer.Token);
+	constructor(values: IComponentValue[], separator?: Tokenizer.Token);
 	constructor(selectorText: string);
 	constructor(...args: any[])
 	{
@@ -1692,7 +1692,7 @@ export class Selector extends ComponentValueList
 
 			that.walkChildren(walker, result);
 
-			if (that._separator && (r = walker(that._separator, () => undefined, walker)) !== undefined)
+			if (that._separator && (r = that._separator.walk(walker)) !== undefined)
 				result.push(r);
 
 			return result;
@@ -1705,6 +1705,404 @@ export class Selector extends ComponentValueList
 
 		if (!this._hasError && this._separator)
 			s += this._separator.toString();
+
+		return s;
+	}
+}
+
+
+export class SelectorCombinator extends ComponentValue
+{
+	getCombinator(): string
+	{
+		var t = this.getToken();
+
+		if (t.token === Tokenizer.EToken.WHITESPACE)
+			return ' ';
+		return t.src;
+	}
+}
+
+
+export class SimpleSelector<U extends T.INode> extends ASTNode implements IComponentValue
+{
+	_value: U;
+	_namespace: Tokenizer.Token;
+	_pipe: Tokenizer.Token;
+
+
+	constructor(value: U, namespace?: Tokenizer.Token, pipe?: Tokenizer.Token)
+	{
+		var t: T.INode;
+
+		super();
+
+		this._value = value;
+		this._namespace = namespace;
+		this._pipe = pipe;
+
+		if (this._value)
+		{
+			if (this._value instanceof Tokenizer.Token)
+				(<Tokenizer.Token> <any> this._value).parent = this;
+			else if (this._value instanceof ASTNode)
+				(<ASTNode> <any> this._value)._parent = this;
+		}
+
+		if (this._namespace)
+			this._namespace.parent = this;
+		if (this._pipe)
+			this._pipe.parent = this;
+
+		t = this._namespace || this._pipe || this._value;
+		if (t)
+		{
+			this.range.startLine = t.range.startLine;
+			this.range.startColumn = t.range.startColumn;
+		}
+
+		t = this._value || this._pipe || this._namespace;
+		if (t)
+		{
+			this.range.endLine = t.range.endLine;
+			this.range.endColumn = t.range.endColumn;
+		}
+	}
+
+	getChildren(): T.INode[]
+	{
+		if (this._children === null)
+		{
+			this._children = [];
+
+			if (this._namespace)
+				this._children.push(this._namespace);
+			if (this._pipe)
+				this._children.push(this._pipe);
+			if (this._value)
+				this._children.push(this._value);
+		}
+
+		return this._children;
+	}
+
+	getTokens(): Tokenizer.Token[]
+	{
+		if (this._tokens === null)
+		{
+			this._tokens = [];
+
+			if (this._namespace)
+				this._tokens.push(this._namespace);
+			if (this._pipe)
+				this._tokens.push(this._pipe);
+			if (this._value)
+				this._tokens = this._tokens.concat(this._value.getTokens());
+		}
+
+		return this._tokens;
+
+	}
+
+	walk(walker: IASTWalker): any
+	{
+		var that = this;
+
+		return this._walk(walker, function()
+		{
+			var result: any[] = [],
+				r: any;
+
+			if (that._namespace && (r = that._namespace.walk(walker)) !== undefined)
+				result.push(r);
+			if (that._pipe && (r = that._pipe.walk(walker)) !== undefined)
+				result.push(r);
+			if (that._value && (r = that._value.walk(walker)) !== undefined)
+				result.push(r);
+
+			return result;
+		});
+	}
+
+	toString(): string
+	{
+		var s = '';
+
+		if (this._hasError)
+			return this.errorTokensToString();
+
+		if (this._namespace)
+			s += this._namespace.toString();
+		if (this._pipe)
+			s += this._pipe.toString();
+		if (this._value)
+			s += this._value.toString();
+
+		return s;
+	}
+
+	getValue(): string
+	{
+		var s = '';
+
+		if (this._namespace)
+			s += this._namespace.src;
+		if (this._pipe)
+			s += this._pipe.src;
+
+		if (this._value instanceof BlockComponentValue)
+			s += (<BlockComponentValue> <any> this._value).getValue();
+		else if (this._value instanceof ComponentValue)
+			s += (<ComponentValue> <any> this._value).getValue();
+		else if (this._value instanceof Tokenizer.Token)
+			s += (<Tokenizer.Token> <any> this._value).value || this._value.toString();
+		else
+			s += this._value.toString();
+
+		return s;
+	}
+}
+
+
+export class TypeSelector extends SimpleSelector<Tokenizer.Token>
+{
+	getType(): Tokenizer.Token
+	{
+		return this._value;
+	}
+
+}
+
+
+export class UniversalSelector extends SimpleSelector<Tokenizer.Token>
+{
+	getType(): Tokenizer.Token
+	{
+		return this._value;
+	}
+}
+
+
+export class AttributeSelector extends SimpleSelector<BlockComponentValue>
+{
+	getAttribute(): BlockComponentValue
+	{
+		return this._value;
+	}
+}
+
+
+export class ClassSelector extends SimpleSelector<Tokenizer.Token>
+{
+	private _ident: Tokenizer.Token;
+
+	constructor(dot: Tokenizer.Token, ident: Tokenizer.Token, namespace?: Tokenizer.Token, pipe?: Tokenizer.Token)
+	{
+		super(dot, namespace, pipe);
+
+		this._ident = ident;
+		this._ident.parent = this;
+
+		this.range.endLine = ident.range.endLine;
+		this.range.endColumn = ident.range.endColumn;
+	}
+
+	getIdentifier(): Tokenizer.Token
+	{
+		return this._ident;
+	}
+
+	getDot(): Tokenizer.Token
+	{
+		return this._value;
+	}
+
+	getChildren(): T.INode[]
+	{
+		if (this._children === null)
+		{
+			this._children = super.getChildren();
+			this._children.push(this._ident);
+		}
+
+		return this._children;
+	}
+
+	getTokens(): Tokenizer.Token[]
+	{
+		if (this._tokens === null)
+		{
+			this._tokens = super.getTokens();
+			this._tokens.push(this._ident);
+		}
+
+		return this._tokens;
+
+	}
+
+	walk(walker: IASTWalker): any
+	{
+		var that = this;
+
+		return this._walk(walker, function()
+		{
+			var result: any[] = [],
+				r: any;
+
+			if (that._namespace && (r = that._namespace.walk(walker)) !== undefined)
+				result.push(r);
+			if (that._pipe && (r = that._pipe.walk(walker)) !== undefined)
+				result.push(r);
+			if (that._value && (r = that._value.walk(walker)) !== undefined)
+				result.push(r);
+			if (that._ident && (r = that._ident.walk(walker)) !== undefined)
+				result.push(r);
+
+			return result;
+		});
+	}
+
+	toString(): string
+	{
+		var s = super.toString();
+
+		if (!this._hasError)
+			s += this._ident.toString();
+
+		return s;
+	}
+}
+
+
+export class IDSelector extends SimpleSelector<Tokenizer.Token>
+{
+	getID(): Tokenizer.Token
+	{
+		return this._value;
+	}
+}
+
+
+export class PseudoClass extends ASTNode implements IComponentValue
+{
+	private _colon1: Tokenizer.Token;
+	private _colon2: Tokenizer.Token;
+	private _value: IComponentValue;
+
+	constructor(colon1: Tokenizer.Token, colon2: Tokenizer.Token, value: IComponentValue)
+	{
+		var t: T.INode;
+
+		super();
+
+		this._colon1 = colon1;
+		this._colon2 = colon2;
+		this._value = value;
+
+		if (this._colon1)
+			this._colon1.parent = this;
+		if (this._colon2)
+			this._colon2.parent = this;
+		if (this._value)
+			(<ASTNode> <any> this._value)._parent = this;
+
+		t = colon1 || colon2 || value;
+		if (t)
+		{
+			this.range.startLine = t.range.startLine;
+			this.range.startColumn = t.range.startColumn;
+		}
+
+		t = value || colon2 || colon1;
+		if (t)
+		{
+			this.range.endLine = t.range.endLine;
+			this.range.endColumn = t.range.endColumn;
+		}
+	}
+
+	getChildren(): T.INode[]
+	{
+		if (this._children === null)
+		{
+			this._children = [];
+
+			if (this._colon1)
+				this._children.push(this._colon1);
+			if (this._colon2)
+				this._children.push(this._colon2);
+			if (this._value)
+				this._children.push(this._value);
+		}
+
+		return this._children;
+	}
+
+	getTokens(): Tokenizer.Token[]
+	{
+		if (this._tokens === null)
+		{
+			this._tokens = [];
+
+			if (this._colon1)
+				this._tokens.push(this._colon1);
+			if (this._colon2)
+				this._tokens.push(this._colon2);
+			if (this._value)
+				this._tokens = this._tokens.concat(this._value.getTokens());
+		}
+
+		return this._tokens;
+
+	}
+
+	walk(walker: IASTWalker): any
+	{
+		var that = this;
+
+		return this._walk(walker, function()
+		{
+			var result: any[] = [],
+				r: any;
+
+			if (that._colon1 && (r = that._colon1.walk(walker)) !== undefined)
+				result.push(r);
+			if (that._colon2 && (r = that._colon2.walk(walker)) !== undefined)
+				result.push(r);
+			if (that._value && (r = that._value.walk(walker)) !== undefined)
+				result.push(r);
+
+			return result;
+		});
+	}
+
+	toString(): string
+	{
+		var s = '';
+
+		if (this._hasError)
+			return this.errorTokensToString();
+
+		if (this._colon1)
+			s += this._colon1.toString();
+		if (this._colon2)
+			s += this._colon2.toString();
+		if (this._value)
+			s += this._value.toString();
+
+		return s;
+	}
+
+	getValue(): string
+	{
+		var s = '';
+
+		if (this._colon1)
+			s += this._colon1.src;
+		if (this._colon2)
+			s += this._colon2.src;
+		if (this._value)
+			s += this._value.getValue();
 
 		return s;
 	}
@@ -1822,12 +2220,12 @@ export class DeclarationList extends ASTNodeList<Declaration>
 			var result: any[] = [],
 				r: any;
 
-			if (that._lbrace && (r = walker(that._lbrace, () => undefined, walker)) !== undefined)
+			if (that._lbrace && (r = that._lbrace.walk(walker)) !== undefined)
 				result.push(r);
 
 			that.walkChildren(walker, result);
 
-			if (that._rbrace && (r = walker(that._rbrace, () => undefined, walker)) !== undefined)
+			if (that._rbrace && (r = that._rbrace.walk(walker)) !== undefined)
 				result.push(r);
 
 			return result;
@@ -2246,7 +2644,7 @@ export class DeclarationValue extends ComponentValueList
 	private _textWithoutImportant: string = null;
 
 
-	constructor(values: ComponentValue[])
+	constructor(values: IComponentValue[])
 	{
 		super(values);
 	}
@@ -2451,7 +2849,7 @@ export class AtRule extends AbstractRule
 			var result: any[] = [],
 				r: any;
 
-			if (that._atKeyword && (r = walker(that._atKeyword, () => undefined, walker)) !== undefined)
+			if (that._atKeyword && (r = that._atKeyword.walk(walker)) !== undefined)
 				result.push(r);
 			if (that._prelude && (r = that._prelude.walk(walker)) !== undefined)
 				result = result.concat(r);

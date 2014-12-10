@@ -42,7 +42,7 @@ var src =
     '}';
 
 // parse the CSS
-var ast = new Parser.Parser(src).parseStyleSheet();
+var ast = Parser.parse(src);
 
 // test the "stringify" function
 console.log(stringify(ast));

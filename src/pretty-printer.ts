@@ -7,8 +7,6 @@ import Utilities = require('./utilities');
 export function beautify(node: T.INode)
 {
     var level = 0,
-        ret: string,
-        token: Tokenizer.EToken,
         prevAst: T.INode = null,
         prevRet: string = null,
         newline = function()
@@ -21,6 +19,9 @@ export function beautify(node: T.INode)
 
     return Utilities.trim(node.walk(function(ast: T.INode, descend: () => any[], walker: AST.IASTWalker): any
     {
+        var ret: string,
+            token: Tokenizer.EToken;
+
         // generic result for nodes with errors
         if ((ast instanceof AST.ASTNode) && (<AST.ASTNode> ast).hasError())
             ret = (<AST.ASTNode> ast).errorTokensToString();
@@ -41,6 +42,14 @@ export function beautify(node: T.INode)
                 level--;
                 ret = newline() + ret + newline();
             }
+        }
+
+        // selector combinators (white spaces, '+', '>', '~')
+        else if (ast instanceof AST.SelectorCombinator)
+        {
+            ret = (<AST.SelectorCombinator> ast).getToken().token === Tokenizer.EToken.WHITESPACE ?
+                ' ' :
+                ' ' + (<AST.SelectorCombinator> ast).getToken().src + ' ';
         }
 
         // add a trailing space after a selector list
@@ -174,15 +183,6 @@ function beautifyToken(token: Tokenizer.Token, prev: string): string
     case Tokenizer.EToken.SUBSTRING_MATCH:
     case Tokenizer.EToken.COLUMN:
         ret = leadingSpace(trailingSpace(ret));
-        break;
-
-    case Tokenizer.EToken.DELIM:
-        if (token.src === '+' || token.src === '>' || token.src === '~')
-        {
-            ret = trailingSpace(ret);
-            if (prev[prev.length - 1] !== ' ')
-                ret = leadingSpace(ret);
-        }
         break;
     }
 

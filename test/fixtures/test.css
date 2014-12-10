@@ -1,5 +1,7 @@
-#mainColLeft .featureStory ul {
-    /*padding-left: 21px;*/
-    color: blue;
-    /* margin: 0 !important; */
+#globalheader[lang="en-US"] .gh-tab-store .gh-tab-link{width:2.16667em}
+#abc, .abc, a+b, a ~b, a~ .b, a .b, a.b, a[id~=b], a[ id *= b ], a::after {
+    color: red;
+}
+::-webkit-scrollbar-track:hover {
+    color: green;
 }

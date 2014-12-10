@@ -120,6 +120,23 @@ export var atRules: IAtRuleSpec[] = <IAtRuleSpec[]> [
 ];
 
 
+function getLastToken(n: T.INode): Tokenizer.Token
+{
+	var children: T.INode[],
+		len: number;
+
+	if (n instanceof Tokenizer.Token)
+		return <Tokenizer.Token> n;
+
+	children = n.getChildren();
+	if (!children)
+		return null;
+
+	len = children.length;
+	return len === 0 ? null : getLastToken(children[len - 1]);
+}
+
+
 export class Parser
 {
 	private _tokenizer: Tokenizer.Tokenizer;
@@ -644,17 +661,215 @@ export class Parser
 	 */
 	parseSelector(): AST.Selector
 	{
-		var values: AST.ComponentValue[],
-			separator: Tokenizer.Token;
+		var t: Tokenizer.Token,
+			token: Tokenizer.EToken,
+			value: AST.IComponentValue,
+			values: AST.IComponentValue[] = [],
+			len: number,
+			ident: Tokenizer.Token,
+			namespace: Tokenizer.Token,
+			pipe: Tokenizer.Token,
+			colon1: Tokenizer.Token,
+			colon2: Tokenizer.Token,
+			isCombinator = false,
+			previousIsCombinator = false,
+			previousToken: Tokenizer.Token = null,
+			separator: Tokenizer.Token,
+			checkForCombinator: () => void;
+
+		checkForCombinator = function()
+		{
+			var whitespace: Tokenizer.Token,
+				len: number,
+				endLine: number,
+				endColumn: number,
+				newEndLine: number,
+				newEndColumn: number,
+				n: T.INode;
+
+			if (!previousIsCombinator && previousToken && previousToken.hasTrailingWhitespace())
+			{
+				whitespace = previousToken.trailingTrivia[0];
+				whitespace.trailingTrivia = previousToken.trailingTrivia.slice(1);
+
+				values.push(new AST.SelectorCombinator(whitespace));
+
+				len = previousToken.trailingTrivia.length;
+				endLine = previousToken.trailingTrivia[len - 1].range.endLine;
+				endColumn = previousToken.trailingTrivia[len - 1].range.endColumn;
+				newEndLine = whitespace.range.startLine;
+				newEndColumn = whitespace.range.startColumn;
+
+				delete previousToken.trailingTrivia;
+				for (n = previousToken; n !== null; n = n.getParent())
+				{
+					if (n.range.endLine === endLine && n.range.endColumn === endColumn)
+					{
+						n.range.endLine = newEndLine;
+						n.range.endColumn = newEndColumn;
+					}
+				}
+			}
+		};
 
 		try
 		{
+			for (t = this._currentToken; ; )
+			{
+				token = t.token;
+				isCombinator = token === Tokenizer.EToken.DELIM && (t.src === '+' || t.src === '>' || t.src === '~');
+
+				if (token === Tokenizer.EToken.EOF || token === Tokenizer.EToken.LBRACE)
+					break;
+				if (token === Tokenizer.EToken.COMMA)
+				{
+					separator = this._currentToken;
+					this.nextToken();
+					break;
+				}
+				else if (token === Tokenizer.EToken.LPAREN || token === Tokenizer.EToken.LBRACKET)
+				{
+					value = this.parseBlock();
+					if (value)
+					{
+						if (token === Tokenizer.EToken.LBRACKET)
+						{
+							checkForCombinator();
+							value = new AST.AttributeSelector(<AST.BlockComponentValue> value, namespace, pipe);
+							namespace = null;
+							pipe = null;
+						}
+
+						previousToken = getLastToken(value);
+						values.push(value);
+					}
+
+					t = this._currentToken;
+				}
+				else if (token === Tokenizer.EToken.FUNCTION)
+				{
+					value = this.parseFunction();
+					if (value)
+					{
+						previousToken = getLastToken(value);
+						values.push(value);
+					}
+
+					t = this._currentToken;
+				}
+				else if (token === Tokenizer.EToken.DELIM && t.src === '|')
+				{
+					len = values.length;
+					if (len > 0)
+					{
+						value = values[len - 1];
+						if (value instanceof AST.TypeSelector)
+						{
+							namespace = (<AST.TypeSelector> value).getType();
+							values.pop();
+						}
+					}
+					pipe = t;
+
+					previousToken = t;
+					t = this.nextToken();
+				}
+				else if (token === Tokenizer.EToken.HASH)
+				{
+					checkForCombinator();
+					values.push(new AST.IDSelector(t, namespace, pipe));
+					namespace = null;
+					pipe = null;
+
+					previousToken = t;
+					t = this.nextToken();
+				}
+				else if (token === Tokenizer.EToken.DELIM && t.src === '.')
+				{
+					checkForCombinator();
+					ident = this.nextToken();
+					values.push(new AST.ClassSelector(t, ident, namespace, pipe));
+
+					namespace = null;
+					pipe = null;
+
+					previousToken = t;
+					t = this.nextToken();
+				}
+				else if (token === Tokenizer.EToken.DELIM && t.src === '*')
+				{
+					checkForCombinator();
+					values.push(new AST.UniversalSelector(t, namespace, pipe));
+
+					namespace = null;
+					pipe = null;
+
+					previousToken = t;
+					t = this.nextToken();
+				}
+				else if (token === Tokenizer.EToken.IDENT)
+				{
+					checkForCombinator();
+					values.push(new AST.TypeSelector(t, namespace, pipe));
+
+					namespace = null;
+					pipe = null;
+
+					previousToken = t;
+					t = this.nextToken();
+				}
+				else if (token === Tokenizer.EToken.COLON)
+				{
+					colon1 = t;
+					colon2 = null;
+
+					t = this.nextToken();
+					if (t.token === Tokenizer.EToken.COLON)
+					{
+						colon2 = t;
+						t = this.nextToken();
+					}
+
+					if (t.token === Tokenizer.EToken.FUNCTION)
+					{
+						value = this.parseFunction();
+						previousToken = getLastToken(value);
+					}
+					else
+					{
+						value = new AST.ComponentValue(t);
+						previousToken = t;
+						this.nextToken();
+					}
+
+					values.push(new AST.PseudoClass(colon1, colon2, value));
+					t = this._currentToken;
+				}
+				else if (isCombinator)
+				{
+					values.push(new AST.SelectorCombinator(t));
+					previousToken = t;
+					t = this.nextToken();
+				}
+				else
+				{
+					values.push(new AST.ComponentValue(t));
+					previousToken = t;
+					t = this.nextToken();
+				}
+
+				previousIsCombinator = isCombinator;
+			}
+
+
+			/*
 			values = this.parseComponentValueList(Tokenizer.EToken.COMMA, Tokenizer.EToken.LBRACE);
 			if (this._currentToken.token === Tokenizer.EToken.COMMA)
 			{
 				separator = this._currentToken;
 				this.nextToken();
 			}
+			*/
 		}
 		catch (e)
 		{

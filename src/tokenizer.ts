@@ -394,7 +394,8 @@ export class Token implements T.INode
 		return this.getPrologue() + this.src + this.getEpilogue();
 	}
 
-	private constructFromTokenType(token: number, range: T.ISourceRange, src?: string, value?: any, unit?: string, type?: string, start?: number, end?: number)
+	private constructFromTokenType(
+		token: number, range: T.ISourceRange, src?: string, value?: any, unit?: string, type?: string, start?: number, end?: number)
 	{
 		this.token = token;
 		this.range = range;
