@@ -165,6 +165,75 @@ function isEscape(c: string): boolean
 }
 
 
+/**
+ * This section describes how to check if three code points would start an identifier.
+ * Note: This algorithm will not consume any additional code points.
+ *
+ * @returns {boolean}
+ *
+ * @url http://www.w3.org/TR/css3-syntax/#check-if-three-code-points-would-start-an-identifier
+ */
+function wouldStartIdentifier(s: string, pos: number): boolean
+{
+	var cp = s.charCodeAt(pos);
+
+	// If the second code point is a name-start code point or the second and third
+	// code points are a valid escape, return true. Otherwise, return false.
+	if (cp === EChar.HYPHEN)
+		return isNameStart(s.charCodeAt(pos + 1)) || isEscape(s.substr(pos + 1, 2));
+
+	if (isNameStart(cp))
+		return true;
+
+	// If the first and second code points are a valid escape, return true.
+	if (cp === EChar.REVERSE_SOLIDUS)
+		return isEscape(s.substr(pos, 2));
+
+	// Otherwise, return false.
+	return false;
+}
+
+
+/**
+ * This section describes how to check if three code points would start a number.
+ * Note: This algorithm will not consume any additional code points.
+ *
+ * @returns {boolean}
+ *
+ * @url http://www.w3.org/TR/css3-syntax/#starts-with-a-number
+ */
+function wouldStartNumber(s: string, pos: number): boolean
+{
+	var c: number = s.charCodeAt(pos),
+		d: number;
+
+	if (c === EChar.PLUS || c === EChar.HYPHEN)
+	{
+		d = s.charCodeAt(pos + 1);
+
+		// If the second code point is a digit, return true.
+		if (isDigit(d))
+			return true;
+
+		// Otherwise, if the second code point is a U+002E FULL STOP (.)
+		// and the third code point is a digit, return true.
+		if (d === EChar.DOT && isDigit(s.charCodeAt(pos + 2)))
+			return true;
+
+		// Otherwise, return false.
+		return false;
+	}
+
+	if (c === EChar.DOT)
+	{
+		// If the second code point is a digit, return true. Otherwise, return false.
+		return isDigit(s.charCodeAt(pos + 1));
+	}
+
+	return isDigit(c);
+}
+
+
 // ==================================================================
 // TOKENIZER IMPLEMENTATION
 // ==================================================================
@@ -183,24 +252,60 @@ export class Token implements T.INode
 	trailingTrivia: Token[];
 	parent: T.INode;
 
-	constructor(token: number, range: T.ISourceRange, src?: string, value?: any, unit?: string, type?: string, start?: number, end?: number)
+	_children: Token[] = null;
+
+
+	constructor(token: number, range: T.ISourceRange, src?: string, value?: any, unit?: string, type?: string, start?: number, end?: number);
+	constructor(token: string, trailingTrivia?: string[]);
+	constructor(token: string, leadingTrivia: string[], trailingTrivia: string[]);
+	constructor(token: string, tokenType: number, leadingTrivia: string[], trailingTrivia: string[]);
+
+	constructor(...args: any[])
 	{
-		this.token = token;
-		this.range = range;
-		this.src = src;
-		this.value = value || this.src;
-
-		if (unit !== undefined)
-			this.unit = unit;
-
-		if (type !== undefined)
-			this.type = type;
-
-		if (start !== undefined)
-			this.start = start;
-
-		if (end !== undefined)
-			this.end = end;
+		if (typeof args[0] === 'number')
+		{
+			this.constructFromTokenType(
+				<number> args[0],          // token
+				<T.ISourceRange> args[1],  // range
+				<string> args[2],          // src
+				args[3],                   // value
+				<string> args[4],          // unit
+				<string> args[5],          // type
+				<number> args[6],          // start
+				<number> args[7]           // end
+			);
+		}
+		else if (typeof args[0] === 'string')
+		{
+			if (typeof args[1] === 'number')
+			{
+				this.constructFromStringAndTokenType(
+					<string> args[0],     // token
+					<number> args[1],     // token type
+					<string[]> args[2],   // leading trivia
+					<string[]> args[3]    // trailing trivia
+				);
+			}
+			else if (args.length <= 2)
+			{
+				this.constructFromString(
+					<string> args[0],     // token
+					<string[]> args[1]    // trailing trivia
+				);
+			}
+			else if (args.length === 3)
+			{
+				this.constructFromStringAndTrivia(
+					<string> args[0],     // token
+					<string[]> args[1],   // leading trivia
+					<string[]> args[2]    // trailing trivia
+				);
+			}
+			else
+				throw new Error('No constructor with provided argument types');
+		}
+		else
+			throw new Error('No constructor with provided argument types');
 	}
 
 	getParent(): T.INode
@@ -210,7 +315,16 @@ export class Token implements T.INode
 
 	getChildren(): T.INode[]
 	{
-		return [];
+		if (this._children === null)
+		{
+			this._children = [];
+			if (this.leadingTrivia)
+				this._children = this._children.concat(this.leadingTrivia);
+			if (this.trailingTrivia)
+				this._children = this._children.concat(this.trailingTrivia);
+		}
+
+		return this._children;
 	}
 
 	getTokens(): Token[]
@@ -280,6 +394,138 @@ export class Token implements T.INode
 		return this.getPrologue() + this.src + this.getEpilogue();
 	}
 
+	private constructFromTokenType(token: number, range: T.ISourceRange, src?: string, value?: any, unit?: string, type?: string, start?: number, end?: number)
+	{
+		this.token = token;
+		this.range = range;
+		this.src = src;
+		this.value = value || this.src;
+
+		if (unit !== undefined)
+			this.unit = unit;
+
+		if (type !== undefined)
+			this.type = type;
+
+		if (start !== undefined)
+			this.start = start;
+
+		if (end !== undefined)
+			this.end = end;
+	}
+
+	private constructFromString(token: string, trailingTrivia?: string[])
+	{
+		this.constructFromStringAndTrivia(token, null, trailingTrivia);
+	}
+
+	private constructFromStringAndTrivia(token: string, leadingTrivia: string[], trailingTrivia: string[])
+	{
+		var cp = token.charCodeAt(0),
+			dp = token.charCodeAt(1),
+			ep = token.charCodeAt(2),
+			tokenType = EToken.EOF,
+			rest: string;
+
+		if (isWhiteSpace(cp))
+			tokenType = EToken.WHITESPACE;
+		else if (cp === EChar.QUOT || cp === EChar.APOS)
+			tokenType = EToken.STRING;
+		else if (cp === EChar.HASH)
+			tokenType = wouldStartIdentifier(token, 1) ? EToken.HASH : EToken.DELIM;
+		else if (cp === EChar.DOLLAR)
+			tokenType = dp === EChar.EQUALS ? EToken.SUFFIX_MATCH : EToken.DELIM;
+		else if (cp === EChar.LPAREN)
+			tokenType = EToken.LPAREN;
+		else if (cp === EChar.RPAREN)
+			tokenType = EToken.RPAREN;
+		else if (cp === EChar.ASTERISK)
+			tokenType = dp === EChar.EQUALS ? EToken.SUBSTRING_MATCH : EToken.DELIM;
+		else if (cp === EChar.PLUS || cp === EChar.HYPHEN || cp === EChar.DOT || isDigit(cp))
+		{
+			if (wouldStartNumber(token, 0))
+			{
+				rest = token.replace(/[0-9.+-]+/, '');
+				if (rest === '')
+					tokenType = EToken.NUMBER;
+				else if (rest === '%')
+					tokenType = EToken.PERCENTAGE;
+				else
+					tokenType = EToken.DIMENSION;
+			}
+			else if (cp === EChar.HYPHEN && wouldStartIdentifier(token, 0))
+				tokenType = EToken.IDENT;
+			else
+				tokenType = EToken.DELIM;
+		}
+		else if (cp === EChar.COMMA)
+			tokenType = EToken.COMMA;
+		else if (cp === EChar.SOLIDUS)
+			tokenType = dp === EChar.ASTERISK ? EToken.COMMENT : EToken.DELIM;
+		else if (cp === EChar.COLON)
+			tokenType = EToken.COLON;
+		else if (cp === EChar.SEMICOLON)
+			tokenType = EToken.SEMICOLON;
+		else if (cp === EChar.AT)
+			tokenType = wouldStartIdentifier(token, 1) ? EToken.AT_KEYWORD : EToken.DELIM;
+		else if (cp === EChar.LBRACKET)
+			tokenType = EToken.LBRACKET;
+		else if (cp === EChar.REVERSE_SOLIDUS)
+			tokenType = isEscape(token) ? EToken.IDENT : EToken.DELIM;
+		else if (cp === EChar.RBRACKET)
+			tokenType = EToken.RBRACKET;
+		else if (cp === EChar.CIRCUMFLEX)
+			tokenType = dp === EChar.EQUALS ? EToken.PREFIX_MATCH : EToken.DELIM;
+		else if (cp === EChar.LBRACE)
+			tokenType = EToken.LBRACE;
+		else if (cp === EChar.RBRACE)
+			tokenType = EToken.RBRACE;
+		else if (cp === EChar.UCASE_U || cp === EChar.LCASE_U)
+			tokenType = dp === EChar.PLUS && (ep === EChar.QUESTION || isHexDigit(ep)) ? EToken.UNICODE_RANGE : EToken.IDENT;
+		else if (isNameStart(cp))
+			tokenType = EToken.IDENT;
+		else if (cp === EChar.PIPE)
+		{
+			if (dp === EChar.EQUALS)
+				tokenType = EToken.DASH_MATCH;
+			else if (dp === EChar.PIPE)
+				tokenType = EToken.COLUMN;
+			else
+				tokenType = EToken.DELIM;
+		}
+		else if (cp === EChar.TILDA)
+			tokenType = dp === EChar.EQUALS ? EToken.INCLUDE_MATCH : EToken.DELIM;
+		else
+			tokenType = EToken.DELIM;
+
+		this.constructFromStringAndTokenType(token, tokenType, leadingTrivia, trailingTrivia);
+	}
+
+	private constructFromStringAndTokenType(token: string, tokenType: number, leadingTrivia: string[], trailingTrivia: string[])
+	{
+		var len: number,
+			i: number;
+
+		this.token = tokenType;
+		this.src = token;
+
+		if (leadingTrivia)
+		{
+			this.leadingTrivia = [];
+			len = leadingTrivia.length;
+			for (i = 0; i < len; i++)
+				this.leadingTrivia.push(new Token(leadingTrivia[i]));
+		}
+
+		if (trailingTrivia)
+		{
+			this.trailingTrivia = [];
+			len = trailingTrivia.length;
+			for (i = 0; i < len; i++)
+				this.trailingTrivia.push(new Token(trailingTrivia[i]));
+		}
+	}
+
 	private triviaToString(triviaToken: Token[]): string
 	{
 		var s = '',
@@ -346,6 +592,7 @@ export class Tokenizer
 	{
 		var leadingTrivia = [],
 			trailingTrivia = [],
+			len: number,
 			currentToken = this._currentToken,
 			t: Token;
 
@@ -379,9 +626,21 @@ export class Tokenizer
 		}
 
 		if (leadingTrivia.length > 0)
+		{
 			currentToken.leadingTrivia = leadingTrivia;
-		if (trailingTrivia.length > 0)
+
+			currentToken.range.startLine = leadingTrivia[0].range.startLine;
+			currentToken.range.startColumn = leadingTrivia[0].range.startColumn;
+		}
+
+		len = trailingTrivia.length;
+		if (len > 0)
+		{
 			currentToken.trailingTrivia = trailingTrivia;
+
+			currentToken.range.endLine = trailingTrivia[len - 1].range.endLine;
+			currentToken.range.endColumn = trailingTrivia[len - 1].range.endColumn;
+		}
 
 		return currentToken;
 	}
@@ -718,19 +977,17 @@ export class Tokenizer
 
 	private nextChar(): string
 	{
-		var c: string;
-
-		++this._pos;
-		++this._column;
-		c = this._src[this._pos];
-
+		var c = this._src[this._pos];
 		if (c === '\r' || (c === '\n' && this._src[this._pos - 1] !== '\r'))
 		{
-			this._column = this._options.columnBase - 1;
+			this._column = this._options.columnBase;
 			++this._line;
 		}
+		else
+			++this._column;
 
-		return c;
+		++this._pos;
+		return this._src[this._pos];
 	}
 
 	/**
@@ -760,22 +1017,7 @@ export class Tokenizer
 	 */
 	private wouldStartIdentifier(): boolean
 	{
-		var cp = this._src.charCodeAt(this._pos);
-
-		// If the second code point is a name-start code point or the second and third
-		// code points are a valid escape, return true. Otherwise, return false.
-		if (cp === EChar.HYPHEN)
-			return isNameStart(this._src.charCodeAt(this._pos + 1)) || isEscape(this._src.substr(this._pos + 1, 2));
-
-		if (isNameStart(cp))
-			return true;
-
-		// If the first and second code points are a valid escape, return true.
-		if (cp === EChar.REVERSE_SOLIDUS)
-			return this.validEscape();
-
-		// Otherwise, return false.
-		return false;
+		return wouldStartIdentifier(this._src, this._pos);
 	}
 
 
@@ -789,33 +1031,7 @@ export class Tokenizer
 	 */
 	private wouldStartNumber(): boolean
 	{
-		var c: number = this._src.charCodeAt(this._pos),
-			d: number;
-
-		if (c === EChar.PLUS || c === EChar.HYPHEN)
-		{
-			d = this._src.charCodeAt(this._pos + 1);
-
-			// If the second code point is a digit, return true.
-			if (isDigit(d))
-				return true;
-
-			// Otherwise, if the second code point is a U+002E FULL STOP (.)
-			// and the third code point is a digit, return true.
-			if (d === EChar.DOT && isDigit(this._src.charCodeAt(this._pos + 2)))
-				return true;
-
-			// Otherwise, return false.
-			return false;
-		}
-
-		if (c === EChar.DOT)
-		{
-			// If the second code point is a digit, return true. Otherwise, return false.
-			return isDigit(this._src.charCodeAt(this._pos + 1));
-		}
-
-		return isDigit(c);
+		return wouldStartNumber(this._src, this._pos);
 	}
 
 

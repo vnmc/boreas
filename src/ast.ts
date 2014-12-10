@@ -17,6 +17,12 @@ export interface IASTWalker
 	(ast: T.INode, descend: () => any[], walker?: IASTWalker): any;
 }
 
+interface IPosition
+{
+	line: number;
+	column: number;
+}
+
 
 // ==================================================================
 // HELPER FUNCTIONS
@@ -44,6 +50,7 @@ function setRangeFromChildren(range: T.ISourceRange, children: T.INode[])
 	range.endColumn = lastChildRange.endColumn;
 }
 
+
 /**
  * Determines whether the AST node "node" has a parent which is an instance of "ctor".
  *
@@ -67,6 +74,7 @@ export function hasParent(node: T.INode, ctor: Function): boolean
 
 	return false;
 }
+
 
 /**
  * Finds the closest ancestor of the AST node "node" which is an instanceof of "ctor".
@@ -93,6 +101,7 @@ export function getParent(node: T.INode, ctor?: Function): T.INode
 
 	return null;
 }
+
 
 /**
  * Converts an array of tokens to a string, normalizing whitespaces and removing comments.
@@ -126,6 +135,16 @@ export function toStringNormalize(tokens: Tokenizer.Token[]): string
 }
 
 
+function trailingWhitespace(token: Tokenizer.Token, range?: T.ISourceRange): Tokenizer.Token
+{
+	token.trailingTrivia = [
+		new Tokenizer.Token(Tokenizer.EToken.WHITESPACE, range || new SourceRange(), ' ')
+	];
+
+	return token;
+}
+
+
 
 // ==================================================================
 // AST CLASSES
@@ -137,6 +156,7 @@ export class SourceRange implements T.ISourceRange
 	startColumn: number;
 	endLine: number;
 	endColumn: number;
+
 
 	constructor(startLine: number = 0, startColumn: number = 0, endLine: number = 0, endColumn: number = 0)
 	{
@@ -265,10 +285,12 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 {
 	_nodes: U[];
 
+
 	constructor(nodes: U[])
 	{
 		var i: number,
-			len: number;
+			len: number,
+			node: U;
 
 		super();
 
@@ -278,8 +300,15 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 			len = this._nodes.length;
 			for (i = 0; i < len; i++)
 			{
-				(<any> this._nodes[i])._parent = this;
-				this[i] = this._nodes[i];
+				node = this._nodes[i];
+
+				// set the parent
+				if (node instanceof ASTNode)
+					(<any> node)._parent = this;
+				else if (node instanceof Tokenizer.Token)
+					(<any> node).parent = this;
+
+				this[i] = node;
 			}
 
 			if (len > 0)
@@ -318,9 +347,225 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 		return this._tokens;
 	}
 
+	/**
+	 * Returns the number of nodes in this list.
+	 *
+	 * @returns {number}
+	 */
 	getLength(): number
 	{
 		return this._nodes.length;
+	}
+
+	getStartPosition(): IPosition
+	{
+		return { line: this.range.startLine, column: this.range.startColumn };
+	}
+
+	replaceNodes(nodes: U[]): void
+	{
+		var offsetLine: number,
+			offsetColumn: number,
+			range: T.ISourceRange,
+			pos: IPosition,
+			root = this.getRoot(),
+			len = nodes.length,
+			i: number,
+			node: U,
+			virtualNode: ASTNode,
+			firstRange: T.ISourceRange,
+			lastRange: T.ISourceRange;
+
+		if (this._nodes.length > 0)
+		{
+			range = this._nodes[0].range;
+			offsetLine = range.startLine;
+			offsetColumn = range.startColumn;
+		}
+		else
+		{
+			pos = this.getStartPosition();
+			offsetLine = pos.line;
+			offsetColumn = pos.column;
+		}
+
+		// delete all the current nodes
+		this.deleteAllNodes();
+
+		// adjust the ranges of the nodes
+		for (i = 0; i < len; i++)
+		{
+			node = nodes[i];
+
+			Utilities.offsetRange(node, offsetLine - node.range.startLine, offsetColumn - node.range.startColumn);
+
+			offsetLine = node.range.endLine;
+			offsetColumn = node.range.endColumn;
+		}
+
+		// adjust the ranges in the AST
+		firstRange = nodes[0].range;
+		lastRange = nodes[len - 1].range;
+		virtualNode = new ASTNode();
+		virtualNode._parent = this;
+		virtualNode.range = new SourceRange(firstRange.startLine, firstRange.startColumn, lastRange.endLine, lastRange.endColumn);
+		Utilities.insertRangeFromNode(root, virtualNode);
+
+		// insert the nodes into the collection
+		for (i = 0; i < len; i++)
+		{
+			node = nodes[i];
+
+			// add the node to the collection and add the node references
+			this._nodes.push(node);
+			this[i] = node;
+
+			// set the parent
+			if (node instanceof ASTNode)
+				(<any> node)._parent = this;
+			else if (node instanceof Tokenizer.Token)
+				(<any> node).parent = this;
+		}
+	}
+
+	/**
+	 * Inserts a new node at position "pos" or at the end if no position is provided.
+	 *
+	 * @param node The node to insert
+	 * @param pos The position at which to insert the node
+	 */
+	insertNode(node: U, pos?: number): void
+	{
+		var nodes = this._nodes,
+			len = nodes.length,
+			i: number,
+			range: T.ISourceRange,
+			position: IPosition,
+			offsetLine: number,
+			offsetColumn: number;
+
+		// set the parent of the node to insert
+		if (node instanceof ASTNode)
+			(<any> node)._parent = this;
+		else if (node instanceof Tokenizer.Token)
+			(<any> node).parent = this;
+
+		// insert the node into the collection
+		if (pos === undefined)
+			pos = len;
+		else
+		{
+			if (pos < 0)
+				pos = 0;
+			if (pos > len)
+				pos = len;
+		}
+
+		// find the line/column offset
+		if (len === 0)
+		{
+			position = this.getStartPosition();
+			offsetLine = position.line;
+			offsetColumn = position.column;
+		}
+		else if (pos === 0)
+		{
+			range = nodes[0].range;
+			offsetLine = range.startLine;
+			offsetColumn = range.startColumn;
+		}
+		else
+		{
+			range = nodes[pos - 1].range;
+			offsetLine = range.endLine;
+			offsetColumn = range.endColumn;
+		}
+
+		// insert the new node and update the node references
+		nodes.splice(pos, 0, node);
+		for (i = pos; i < len + 1; i++)
+			this[i] = nodes[i];
+
+		// update the ranges
+		Utilities.offsetRange(node, offsetLine - node.range.startLine, offsetColumn - node.range.startColumn);
+		Utilities.insertRangeFromNode(this.getRoot(), node);
+
+		// recompute tokens and children
+		this._tokens = null;
+		this._children = null;
+	}
+
+	/**
+	 * Deletes the node at position "pos".
+	 * If there is no node at this position, no node is deleted.
+	 *
+	 * @param pos The position at which to delete the node
+	 */
+	deleteNode(pos: number): void
+	{
+		var nodes = this._nodes,
+			len = nodes.length,
+			i: number,
+			node: T.INode;
+
+		if (0 <= pos && pos < len)
+		{
+			// remove the node from the collection
+			node = nodes[pos];
+			nodes.splice(pos, 1);
+
+			// update the references
+			for (i = pos; i < len - 1; i++)
+				this[i] = nodes[i];
+			delete this[len - 1];
+
+			// update the ranges
+			Utilities.zeroRange(this.getRoot(), node);
+
+			// recompute tokens and children
+			this._tokens = null;
+			this._children = null;
+		}
+	}
+
+	/**
+	 * Deletes all nodes from the node list.
+	 */
+	deleteAllNodes(): void
+	{
+		var nodes = this._nodes,
+			len = nodes.length,
+			i: number,
+			firstRange: T.ISourceRange,
+			lastRange: T.ISourceRange,
+			range: T.ISourceRange;
+
+		// nothing to do if there are no nodes
+		if (len === 0)
+			return;
+
+		// construct the range to delete
+		firstRange = nodes[0].range;
+		lastRange = nodes[len - 1].range;
+		range = {
+			startLine: firstRange.startLine,
+			startColumn: firstRange.startColumn,
+			endLine: lastRange.endLine,
+			endColumn: lastRange.endColumn
+		};
+
+		// remove the nodes
+		nodes.splice(0, len);
+
+		// remove the references
+		for (i = 0; i < len; i++)
+			delete this[i];
+
+		// update the ranges
+		Utilities.zeroRange(this.getRoot(), range);
+
+		this._tokens = null;
+		this._children = null;
 	}
 
 	forEach(it: (elt: U) => void)
@@ -387,12 +632,14 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 
 export interface IComponentValue extends T.INode
 {
+	getValue(): string;
 }
 
 
 export class ComponentValue extends ASTNode implements IComponentValue
 {
 	private _token: Tokenizer.Token;
+
 
 	constructor(token?: Tokenizer.Token)
 	{
@@ -431,7 +678,7 @@ export class ComponentValue extends ASTNode implements IComponentValue
 
 	getValue(): string
 	{
-		return this._token.src;
+		return this._token.value || this._token.src;
 	}
 
 	getType(): Tokenizer.EToken
@@ -457,6 +704,11 @@ export class ComponentValueList extends ASTNodeList<ComponentValue> implements I
 	{
 		super(values);
 	}
+
+	getValue(): string
+	{
+		return this.toString();
+	}
 }
 
 
@@ -464,6 +716,7 @@ export class BlockComponentValue extends ComponentValueList
 {
 	private _startToken: Tokenizer.Token;
 	private _endToken: Tokenizer.Token;
+
 
 	constructor(startToken: Tokenizer.Token, endToken: Tokenizer.Token, values: IComponentValue[])
 	{
@@ -582,6 +835,7 @@ export class FunctionArgumentValue extends ComponentValueList
 {
 	private _separator: Tokenizer.Token;
 
+
 	constructor(values: ComponentValue[], separator?: Tokenizer.Token)
 	{
 		super(values);
@@ -671,6 +925,7 @@ export class ImportantComponentValue extends ASTNode
 {
 	private _exclamationMark: Tokenizer.Token;
 	private _important: Tokenizer.Token;
+
 
 	constructor(exclamationMark: Tokenizer.Token, important: Tokenizer.Token)
 	{
@@ -788,6 +1043,7 @@ export class RuleList extends ASTNodeList<AbstractRule>
 	private _lbrace: Tokenizer.Token;
 	private _rbrace: Tokenizer.Token;
 
+
 	constructor(rules: AbstractRule[], lbrace?: Tokenizer.Token, rbrace?: Tokenizer.Token)
 	{
 		super(rules);
@@ -814,57 +1070,37 @@ export class RuleList extends ASTNodeList<AbstractRule>
 		}
 	}
 
-	insertRule(selectors: string, pos?: number): Rule
+	static fromErrorTokens(tokens: Tokenizer.Token[]): RuleList
 	{
-		var sels = new SelectorList(),
-			style = new DeclarationList(null),
-			rule = new Rule(sels, style),
-			prevRule: AbstractRule = null,
-			children = this._nodes,
-			len = children.length,
-			startLine: number,
-			startColumn: number;
+		var ruleList = new RuleList([]);
 
-		rule._parent = this;
+		ruleList._tokens = tokens;
+		ruleList._hasError = true;
+		setRangeFromChildren(ruleList.range, tokens);
 
-		if (pos === undefined)
-		{
-			if (len > 0)
-				prevRule = children[len - 1];
-			children.push(rule);
-		}
-		else
-		{
-			if (pos < 0)
-				pos = 0;
-			if (pos > len)
-				pos = len;
+		return ruleList;
+	}
 
-			if (pos > 0)
-				prevRule = children[pos - 1];
+	getStartPosition(): IPosition
+	{
+		if (this._lbrace)
+			return { line: this._lbrace.range.endLine, column: this._lbrace.range.endColumn };
+		return super.getStartPosition();
+	}
 
-			children.splice(pos, 0, rule);
-		}
+	insertRule(rule: AbstractRule, pos?: number): void
+	{
+		this.insertNode(rule, pos);
+	}
 
-		// create the ranges, epilogues and prologues for the child nodes
-		startLine = prevRule ? prevRule.range.endLine : this.range.startLine;
-		startColumn = prevRule ? prevRule.range.endColumn : this.range.startColumn;
+	deleteRule(pos: number): void
+	{
+		this.deleteNode(pos);
+	}
 
-		// XX sels.prologue = '\n';
-		sels.range = new SourceRange(startLine, startColumn, startLine, startColumn);
-
-		// XX style.prologue = '{\n';
-		// XX style.epilogue = '}\n';
-		style.range = new SourceRange(sels.range.endLine, sels.range.endColumn, sels.range.endLine + 2, 0);
-
-		rule.range = new SourceRange(sels.range.startLine, sels.range.startColumn, style.range.endLine, style.range.endColumn);
-
-		Utilities.insertRangeFromNode(this.getRoot(), rule);
-
-		// add the selectors to the list
-		sels.setSelectorText(selectors);
-
-		return rule;
+	deleteAllRules()
+	{
+		this.deleteAllNodes();
 	}
 
 	getChildren(): T.INode[]
@@ -910,6 +1146,19 @@ export class RuleList extends ASTNodeList<AbstractRule>
 		return this._rbrace;
 	}
 
+	removeBraces(): void
+	{
+		var root = this.getRoot();
+
+		if (this._lbrace)
+			Utilities.zeroRange(root, this._lbrace);
+		if (this._rbrace)
+			Utilities.zeroRange(root, this._rbrace);
+
+		this._lbrace = null;
+		this._rbrace = null;
+	}
+
 	walk(walker: IASTWalker): any
 	{
 		var that = this;
@@ -952,17 +1201,34 @@ export class StyleSheet extends ASTNode
 {
 	private _rules: RuleList;
 
+
 	constructor(ruleList: RuleList)
 	{
 		super();
 
 		this._rules = ruleList;
 		this._rules._parent = this;
+		this._rules.removeBraces();
 
 		this.range.startLine = ruleList.range.startLine;
 		this.range.startColumn = ruleList.range.startColumn;
 		this.range.endLine = ruleList.range.endLine;
 		this.range.endColumn = ruleList.range.endColumn;
+	}
+
+	insertRule(rule: AbstractRule, pos?: number): void
+	{
+		this._rules.insertRule(rule, pos);
+	}
+
+	deleteRule(pos: number): void
+	{
+		this._rules.deleteRule(pos);
+	}
+
+	deleteAllRules(): void
+	{
+		this._rules.deleteAllRules();
 	}
 
 	getChildren(): T.INode[]
@@ -1006,6 +1272,7 @@ export class Rule extends AbstractRule
 	private _selectors: SelectorList;
 	private _declarations: DeclarationList;
 
+
 	constructor(selectors?: SelectorList, declarations?: DeclarationList)
 	{
 		var t: T.INode;
@@ -1046,6 +1313,48 @@ export class Rule extends AbstractRule
 		setRangeFromChildren(rule.range, tokens);
 
 		return rule;
+	}
+
+	setSelectors(selectors: SelectorList): void
+	{
+		if (this._selectors)
+			this._selectors.setSelectors(selectors._nodes);
+	}
+
+	insertSelector(selector: Selector, pos?: number): void
+	{
+		if (this._selectors)
+			this._selectors.insertSelector(selector, pos);
+	}
+
+	deleteSelector(pos: number): void
+	{
+		if (this._selectors)
+			this._selectors.deleteSelector(pos);
+	}
+
+	deleteAllSelectors(): void
+	{
+		if (this._selectors)
+			this._selectors.deleteAllSelectors();
+	}
+
+	insertDeclaration(declaration: Declaration, pos?: number): void
+	{
+		if (this._declarations)
+			this._declarations.insertDeclaration(declaration, pos);
+	}
+
+	deleteDeclaration(pos: number): void
+	{
+		if (this._declarations)
+			this._declarations.deleteDeclaration(pos);
+	}
+
+	deleteAllDeclarations(): void
+	{
+		if (this._declarations)
+			this._declarations.deleteAllDeclarations();
 	}
 
 	getChildren(): T.INode[]
@@ -1128,6 +1437,22 @@ export class SelectorList extends ASTNodeList<Selector>
 	constructor(selectors?: Selector[])
 	{
 		super(selectors || []);
+
+		var len: number,
+			i: number,
+			selector: Selector;
+
+		// add separators to the selectors which don't have one (except for the last one)
+		if (selectors)
+		{
+			len = selectors.length;
+			for (i = 0; i < len - 1; i++)
+			{
+				selector = selectors[i];
+				if (!selector.getSeparator())
+					selector.addSeparator();
+			}
+		}
 	}
 
 	getSelector(index: number): Selector
@@ -1135,120 +1460,60 @@ export class SelectorList extends ASTNodeList<Selector>
 		return this._nodes[index];
 	}
 
-	setSelectorText(selectors: string): void
+	setSelectors(selectors: Selector[]): void;
+	setSelectors(selectors: SelectorList): void;
+	setSelectors(selectors: any): void
 	{
-		var root = this.getRoot(),
-			sl = this.range.startLine,
-			sc = this.range.startColumn,
-			children = this._children,
-			astSelectors: Selector[],
-			len: number,
+		var len: number,
 			i: number,
-			sel: Selector,
-			lastSel: Selector;
+			selector: Selector;
 
-		// remove the old selectors and zero the range
-		children.splice(0, children.length);
-		Utilities.zeroRange(root, this);
-
-		astSelectors = new Parser.Parser(selectors).parseSelectorList()._nodes;
-		len = astSelectors.length;
-
-		// add the selectors to this selector list
-		for (i = 0; i < len; i++)
+		if (Array.isArray(selectors))
 		{
-			sel = astSelectors[i];
+			// make sure there are separators
+			len = selectors.length;
+			for (i = 0; i < len - 1; i++)
+			{
+				selector = selectors[i];
+				if (!selector.getSeparator())
+					selector.addSeparator();
+			}
 
-			sel._parent = this;
-
-			sel.range.startLine += sl;
-			sel.range.startColumn += sc;
-			sel.range.endLine += sl;
-			if (sel.range.startLine === sel.range.endLine)
-				sel.range.endColumn += sc;
-
-			children.push(sel);
+			this.replaceNodes(selectors);
 		}
-
-		// adjust the ranges
-		if (len > 0)
-		{
-			lastSel = astSelectors[len - 1];
-			this.range.endLine = lastSel.range.endLine;
-			this.range.endColumn = lastSel.range.endColumn;
-			Utilities.insertRangeFromNode(root, this);
-		}
+		else if (selectors instanceof SelectorList)
+			this.replaceNodes(selectors._nodes);
 	}
 
-	insertSelector(selector: any, pos?: number): Selector
+	insertSelector(selector: Selector, pos?: number): void
 	{
-		var sel: Selector = null,
-			root = this.getRoot(),
-			children = this._nodes,
-			len = children.length,
-			prevSel: Selector = null,
-			nextSel: Selector = null,
-			selText: string,
-			startIndices: number[];
+		var len = this.getLength(),
+			prevSelector: Selector;
 
-		if (typeof selector === 'string')
-			sel = new Selector(selector);
-		else if (selector instanceof Selector)
-			sel = selector;
-		else
-			return null;
+		// check if the selector needs a separator (i.e., if the selector is
+		// inserted into a non-empty list (not at the end of the list)
+		if (!selector.getSeparator() && (len > 0 && pos !== undefined && pos < len))
+			selector.addSeparator();
 
-		sel._parent = this;
-
-		if (pos === undefined)
+		// add a separator to the selector preceding the one to be inserted if it doesn't have one already
+		if (len > 0 && (pos === undefined || pos > 0))
 		{
-			if (len > 0)
-				prevSel = children[len - 1];
-			children.push(sel);
-		}
-		else
-		{
-			if (pos < 0)
-				pos = 0;
-			if (pos > len)
-				pos = len;
-
-			if (pos > 0)
-				prevSel = children[pos - 1];
-			if (pos < len - 1)
-				nextSel = children[pos];
-
-			children.splice(pos, 0, sel);
+			prevSelector = this._nodes[pos === undefined ? len - 1 : pos - 1];
+			if (prevSelector && !prevSelector.getSeparator())
+				prevSelector.addSeparator();
 		}
 
-		// XX sel.prologue = prevSel ? prevSel.prologue : '';
-		// XX sel.epilogue = prevSel ? prevSel.epilogue : (nextSel ? ',' : '');
+		this.insertNode(selector, pos);
+	}
 
-		// insert a comma
-		if (prevSel && !nextSel)
-		{
-			// XX prevSel.epilogue = ',' + prevSel.epilogue;
-			Utilities.insertRangeFromNode(
-				root,
-				prevSel,
-				new SourceRange(prevSel.range.endLine, prevSel.range.endColumn, prevSel.range.endLine, prevSel.range.endColumn + 1)
-			);
-		}
+	deleteSelector(pos: number): void
+	{
+		this.deleteNode(pos);
+	}
 
-		// XX var selText = sel.prologue + sel.text + sel.epilogue;
-		selText = sel.getText();
-		startIndices = Utilities.getLineStartIndices(selText);
-
-		sel.range.startLine = prevSel ? prevSel.range.endLine : this.range.startLine;
-		sel.range.startColumn = prevSel ? prevSel.range.endColumn : this.range.startColumn;
-		sel.range.endLine = sel.range.startLine + startIndices.length;
-		sel.range.endColumn = sel.range.startLine === sel.range.endLine ?
-		sel.range.startColumn + selText.length :
-			Utilities.getColumnNumberFromPosition(selText.length, startIndices);
-
-		Utilities.insertRangeFromNode(root, sel);
-
-		return sel;
+	deleteAllSelectors(): void
+	{
+		this.deleteAllNodes();
 	}
 }
 
@@ -1259,24 +1524,14 @@ export class Selector extends ComponentValueList
 	private _text: string = null;
 
 
-	constructor(text: string);
 	constructor(values: ComponentValue[], separator?: Tokenizer.Token);
-
+	constructor(selectorText: string);
 	constructor(...args: any[])
 	{
-		super(Array.isArray(args[0]) ? <ComponentValue[]> args[0] : null);
+		super(typeof args[0] === 'string' ? (new Parser.Parser(<string> args[0]).parseComponentValueList()) : <ComponentValue[]> args[0]);
 
-		if (typeof args[0] === 'string')
+		if (args.length >= 1 && args[1] instanceof Tokenizer.Token)
 		{
-			// constructor(text: string)
-
-			// TODO: implement
-			throw 'not-implemented';
-		}
-		else if (Array.isArray(args[0]))
-		{
-			// constructor(values: ComponentValue[], separator?: Tokenizer.Token)
-
 			this._separator = <Tokenizer.Token> args[1];
 			if (this._separator)
 			{
@@ -1305,30 +1560,89 @@ export class Selector extends ComponentValueList
 		return selector;
 	}
 
+	addSeparator(): void
+	{
+		var line: number,
+			column: number,
+			separator: Tokenizer.Token,
+			root = this.getRoot(),
+			tokens: Tokenizer.Token[],
+			lenTokens: number,
+			lastToken: Tokenizer.Token,
+			trivia: Tokenizer.Token[],
+			len: number,
+			i: number,
+			token: Tokenizer.Token;
+
+		if (this._separator)
+			return;
+
+		// move the trailing trivia
+		tokens = this._nodes[this._nodes.length - 1].getTokens();
+		if (tokens && ((lenTokens = tokens.length) > 0) && tokens[lenTokens - 1].trailingTrivia)
+		{
+			// remove the trivia
+			lastToken = tokens[lenTokens - 1];
+			trivia = lastToken.trailingTrivia;
+			delete lastToken.trailingTrivia;
+			lastToken._children = null;
+
+			// update the ranges
+			len = trivia.length;
+			Utilities.zeroRange(root, new SourceRange(
+				trivia[0].range.startLine, trivia[0].range.startColumn, trivia[len - 1].range.endLine, trivia[len - 1].range.endColumn)
+			);
+
+			// offset the range of the trivia tokens (insert the separator token)
+			line = this.range.endLine;
+			column = this.range.endColumn;
+			for (i = 0; i < len; i++)
+			{
+				token = trivia[i];
+				if (token.range.startLine === line)
+					token.range.startColumn++;
+				if (token.range.endLine === line)
+					token.range.endColumn++;
+			}
+
+			// create a new separator
+			separator = new Tokenizer.Token(
+				Tokenizer.EToken.COMMA,
+				new SourceRange(line, column, trivia[len - 1].range.endLine, trivia[len - 1].range.endColumn),
+				','
+			);
+			separator.trailingTrivia = trivia;
+		}
+		else
+		{
+			line = this.range.endLine;
+			column = this.range.endColumn;
+			separator = new Tokenizer.Token(Tokenizer.EToken.COMMA, new SourceRange(line, column, line, column + 2), ',');
+			separator.trailingTrivia = [
+				new Tokenizer.Token(Tokenizer.EToken.WHITESPACE, new SourceRange(line, column + 1, line, column + 2), ' ')
+			];
+		}
+
+		// force recompute
+		this._children = null;
+		this._tokens = null;
+
+		this._separator = separator;
+		this._separator.parent = this;
+
+		Utilities.insertRangeFromNode(root, this._separator);
+	}
+
 	getText(): string
 	{
 		if (this._text === null)
-			this._text = toStringNormalize(this.getTokens());
+			this._text = toStringNormalize(super.getTokens());
 		return this._text;
 	}
 
 	setText(newText: string): void
 	{
-		var selector: Selector,
-			children: ASTNode[];
-
-		if (this._text === newText)
-			return;
-
-		this._text = null;
-
-		selector = new Parser.Parser(newText).parseSelector();
-		Utilities.offsetRange(selector, this.range.startLine, this.range.startColumn);
-
-		Utilities.updateNodeRange(this.getRoot(), this, selector.range);
-
-		children = this._nodes;
-		children.splice.apply(children, (<any> [ 0, children.length ]).concat(selector._children));
+		this.replaceNodes(new Parser.Parser(newText).parseComponentValueList());
 	}
 
 	getChildren(): T.INode[]
@@ -1402,6 +1716,7 @@ export class DeclarationList extends ASTNodeList<Declaration>
 	private _lbrace: Tokenizer.Token;
 	private _rbrace: Tokenizer.Token;
 
+
 	constructor(declarations: Declaration[], lbrace?: Tokenizer.Token, rbrace?: Tokenizer.Token)
 	{
 		super(declarations);
@@ -1428,67 +1743,30 @@ export class DeclarationList extends ASTNodeList<Declaration>
 		}
 	}
 
-	insertDeclaration(declaration: Declaration, pos?: number): Declaration
+	static fromErrorTokens(tokens: Tokenizer.Token[]): DeclarationList
 	{
-		declaration._parent = this;
+		var declarationList = new DeclarationList([]);
 
-		var children = this._nodes,
-			len = children.length,
-			prevProp: Declaration = null,
-			nextProp: Declaration = null,
-			propText: string,
-			startIndices: number[];
+		declarationList._tokens = tokens;
+		declarationList._hasError = true;
+		setRangeFromChildren(declarationList.range, tokens);
 
-		if (pos === undefined)
-		{
-			if (len > 0)
-				prevProp = children[len - 1];
-			children.push(declaration);
-		}
-		else
-		{
-			if (pos < 0)
-				pos = 0;
-			if (pos > len)
-				pos = len;
-
-			if (pos > 0)
-				prevProp = children[pos - 1];
-			if (pos < len - 1)
-				nextProp = children[pos];
-
-			children.splice(pos, 0, declaration);
-		}
-
-		// XX declaration.prologue = prevProp ? prevProp.prologue : (nextProp ? nextProp.prologue : '');
-		// XX declaration.epilogue = prevProp ? prevProp.epilogue : (nextProp ? nextProp.epilogue : ';');
-
-		// XX var propText = declaration.prologue + declaration.name + ':' + declaration.value.toString() + declaration.epilogue;
-		propText = declaration.getName() + ':' + declaration.getValue().toString();
-		startIndices = Utilities.getLineStartIndices(propText);
-
-		declaration.range.startLine = prevProp ? prevProp.range.endLine : this.range.startLine;
-		declaration.range.startColumn = prevProp ? prevProp.range.endColumn : this.range.startColumn;
-		declaration.range.endLine = declaration.range.startLine + startIndices.length;
-		declaration.range.endColumn = declaration.range.startLine === declaration.range.endLine ?
-			declaration.range.startColumn + propText.length :
-			Utilities.getColumnNumberFromPosition(propText.length, startIndices);
-
-		Utilities.insertRangeFromNode(this.getRoot(), declaration);
-
-		return declaration;
+		return declarationList;
 	}
 
-	insertPropertyWithName(name: string, value: string, pos?: number): Declaration
+	insertDeclaration(declaration: Declaration, pos?: number): void
 	{
-		return this.insertPropertyWithText(name + ': ' + value);
+		this.insertNode(declaration, pos);
 	}
 
-	insertPropertyWithText(text: string, pos?: number): Declaration
+	deleteDeclaration(pos: number): void
 	{
-		var prop = new Parser.Parser(text).parseDeclaration();
-		this.insertDeclaration(prop, pos);
-		return prop;
+		this.deleteNode(pos);
+	}
+
+	deleteAllDeclarations(): void
+	{
+		this.deleteAllNodes();
 	}
 
 	getChildren(): T.INode[]
@@ -1556,11 +1834,11 @@ export class DeclarationList extends ASTNodeList<Declaration>
 		});
 	}
 
-	toString(): string
+	toString(excludeBraces?: boolean): string
 	{
 		var s = super.toString();
 
-		if (!this._hasError)
+		if (!this._hasError && !excludeBraces)
 		{
 			if (this._lbrace)
 				s = this._lbrace.toString() + s;
@@ -1583,54 +1861,52 @@ export class Declaration extends ASTNode
 	private _lcomment: Tokenizer.Token;
 	private _rcomment: Tokenizer.Token;
 
+	private _text: string = null;
+	private _nameText: string = null;
 
-	// constructor(name: string, value: DeclarationValue, disabled?: boolean);
-	// constructor(name: ComponentValueList, colon: Tokenizer.Token, value: DeclarationValue, semicolon: Tokenizer.Token, disabled?: boolean);
 
-	// TODO: allow construction from a name string and a DeclarationValue
 	constructor(
 		name: ComponentValueList, colon: Tokenizer.Token, value: DeclarationValue, semicolon: Tokenizer.Token,
-		lcomment?: Tokenizer.Token, rcomment?: Tokenizer.Token)
-	{
-		var t: T.INode;
+		lcomment?: Tokenizer.Token, rcomment?: Tokenizer.Token);
+	constructor(name: string, value: string, important?: boolean, disabled?: boolean);
 
+	constructor(...args: any[])
+	{
 		super();
 
-		this._name = name;
-		this._colon = colon;
-		this._value = value;
-		this._semicolon = semicolon;
-		this._lcomment = lcomment;
-		this._rcomment = rcomment;
-
-		// set parents
-		if (name)
-			this._name._parent = this;
-		if (colon)
-			this._colon.parent = this;
-		if (value)
-			this._value._parent = this;
-		if (semicolon)
-			this._semicolon.parent = this;
-		if (lcomment)
-			this._lcomment.parent = this;
-		if (rcomment)
-			this._rcomment.parent = this;
-
-		// set range
-		t = lcomment || name || colon || value || semicolon || rcomment;
-		if (t)
+		if (((args[0] instanceof ComponentValueList) || args[0] === null) &&
+			((args[1] instanceof Tokenizer.Token) || args[1] === null) &&
+			((args[2] instanceof DeclarationValue) || args[2] === null))
 		{
-			this.range.startLine = t.range.startLine;
-			this.range.startColumn = t.range.startColumn;
+			this.set(
+				<ComponentValueList> args[0], // name
+				<Tokenizer.Token> args[1],    // colon
+				<DeclarationValue> args[2],   // value
+				<Tokenizer.Token> args[3],    // semicolon
+				<Tokenizer.Token> args[4],    // lcomment
+				<Tokenizer.Token> args[5]     // rcomment
+			);
 		}
-
-		t = rcomment || semicolon || value || colon || name || lcomment;
-		if (t)
+		else if ((typeof args[0] === 'string') && (typeof args[1] === 'string'))
 		{
-			this.range.endLine = t.range.endLine;
-			this.range.endColumn = t.range.endColumn;
+			var value = <string> args[1],
+				important = <boolean> args[2],
+				disabled = <boolean> args[3];
+
+			if (important && value && value.toLowerCase().indexOf('!important') < 0)
+				value += ' !important';
+
+			this.set(
+				new ComponentValueList(new Parser.Parser(<string> args[0]).parseComponentValueList()),
+				new Tokenizer.Token(Tokenizer.EToken.COLON, new SourceRange(), ':'),
+				new Parser.Parser(<string> args[1]).parseDeclarationValue(),
+				new Tokenizer.Token(Tokenizer.EToken.SEMICOLON, new SourceRange(), ';'),
+				disabled ? new Tokenizer.Token(Tokenizer.EToken.DELIM, new SourceRange(), '/*') : undefined,
+				disabled ? new Tokenizer.Token(Tokenizer.EToken.DELIM, new SourceRange(), '*/') : undefined
+			);
 		}
+		else
+			throw new Error('Unsupported constructor arguments');
 	}
 
 	static fromErrorTokens(tokens: Tokenizer.Token[]): Declaration
@@ -1644,17 +1920,38 @@ export class Declaration extends ASTNode
 		return decl;
 	}
 
-	/*
 	setName(newName: string): void
 	{
-		var newNameLc = newName ? newName.toLowerCase() : newName;
-		if (this._name === newNameLc)
+		var newNameLc = newName ? newName.toLowerCase() : newName,
+			nameValues: ComponentValue[],
+			oldRange: T.ISourceRange,
+			root: T.INode;
+
+		if (this.getNameAsString().toLowerCase() === newNameLc)
 			return;
 
-		Utilities.updateNodeRange(this.root, this, Utilities.getRangeDifference(this._name, newNameLc, this.range));
-		this._name = newNameLc;
+		// parse the new name
+		nameValues = new Parser.Parser(newName).parseComponentValueList();
+		if (!nameValues || nameValues.length === 0)
+			return;
+
+		// set the name property
+		root = this.getRoot();
+		oldRange = this._name.range;
+		Utilities.zeroRange(root, this._name);
+		this._name = new ComponentValueList(nameValues);
+		this._name._parent = this;
+
+		// adjust the ranges
+		Utilities.offsetRange(this._name, oldRange.startLine, oldRange.startColumn);
+		Utilities.insertRangeFromNode(root, this._name);
+
+		// recompute
+		this._text = null;
+		this._nameText = null;
+		this._tokens = null;
+		this._children = null;
 	}
-	*/
 
 	getName(): ComponentValueList
 	{
@@ -1663,7 +1960,9 @@ export class Declaration extends ASTNode
 
 	getNameAsString(): string
 	{
-		return toStringNormalize(this._name.getTokens());
+		if (this._nameText === null)
+			this._nameText = toStringNormalize(this._name.getTokens());
+		return this._nameText;
 	}
 
 	getColon(): Tokenizer.Token
@@ -1676,9 +1975,35 @@ export class Declaration extends ASTNode
 		return this._value;
 	}
 
-	getValueAsString(): string
+	getValueAsString(excludeImportant?: boolean): string
 	{
-		return this._value.getText();
+		return this._value.getText(excludeImportant);
+	}
+
+	setValue(newValue: string): void
+	{
+		var newValueLc = newValue ? newValue.toLowerCase() : newValue,
+			oldRange: T.ISourceRange,
+			root: T.INode;
+
+		if (this.getValueAsString().toLowerCase() === newValueLc)
+			return;
+
+		root = this.getRoot();
+		oldRange = this._value.range;
+		Utilities.zeroRange(root, this._value);
+		this._value = new Parser.Parser(newValue).parseDeclarationValue();
+		this._value._parent = this;
+
+		// adjust the ranges
+		Utilities.offsetRange(this._value, oldRange.startLine, oldRange.startColumn);
+		Utilities.insertRangeFromNode(root, this._value);
+
+		// recompute
+		this._text = null;
+		this._nameText = null;
+		this._tokens = null;
+		this._children = null;
 	}
 
 	getSemicolon(): Tokenizer.Token
@@ -1703,79 +2028,78 @@ export class Declaration extends ASTNode
 
 	setDisabled(isDisabled: boolean): void
 	{
+		var root: T.INode;
+
 		if (this.getDisabled() === isDisabled)
 			return;
 
+		root = this.getRoot();
 		if (isDisabled)
 		{
-			// TODO: range
-			this._lcomment = new Tokenizer.Token(Tokenizer.EToken.DELIM, null, '/*');
-			this._rcomment = new Tokenizer.Token(Tokenizer.EToken.DELIM, null, '*/');
+			// insert an "opening comment" token
+			this._lcomment = new Tokenizer.Token(
+				Tokenizer.EToken.DELIM,
+				new SourceRange(this.range.startLine, this.range.startColumn, this.range.startLine, this.range.startColumn + 2),
+				'/*'
+			);
+			this._lcomment.parent = this;
+			Utilities.insertRangeFromNode(root, this._lcomment);
+
+			// insert a "closing comment" token
+			this._rcomment = new Tokenizer.Token(
+				Tokenizer.EToken.DELIM,
+				new SourceRange(this.range.endLine, this.range.endColumn, this.range.endLine, this.range.endColumn + 2),
+				'*/'
+			);
+			this._rcomment.parent = this;
+			Utilities.insertRangeFromNode(root, this._rcomment);
 		}
 		else
 		{
+			Utilities.zeroRange(root, this._lcomment);
 			this._lcomment = null;
+
+			Utilities.zeroRange(root, this._rcomment);
 			this._rcomment = null;
 		}
 
 		// re-create children and token arrays
 		this._children = null;
 		this._tokens = null;
+	}
 
-		// TODO: update ranges
-
-		// this._disabled = isDisabled;
-
-		// XX var oldPrologue = this.prologue;
-		// XX var oldEpilogue = this.epilogue;
-
-/*
-		if (isDisabled)
-		{
-			this.prologue = this.prologue + '/* ';
-			this.epilogue = this.epilogue + ' * /';
-		}
-		else
-		{
-			this.prologue.replace(/\/\*\s*$/, '');
-			this.epilogue.replace(/\s*\*\/$/, '');
-		}
-*/
-
-		// TODO
-		// XX Utilities.updateNodeRange(this.root, this, Utilities.getRangeDifference(oldPrologue, this.prologue, this.range));
-		// XX Utilities.updateNodeRange(this.root, this, Utilities.getRangeDifference(oldEpilogue, this.epilogue, this.range));
+	getImportant(): boolean
+	{
+		return this._value.getImportant();
 	}
 
 	getText(): string
 	{
-		return this.toString().trim();
+		if (this._text === null)
+			this._text = toStringNormalize(this.getTokens());
+		return this._text;
 	}
 
 	setText(newText: string)
 	{
-		var declaration: Declaration = new Parser.Parser(newText).parseDeclaration(),
-			oldStartLine = this.range.startLine,
-			oldStartColumn = this.range.startColumn,
+		var declaration: Declaration = Parser.parseDeclaration(newText),
 			root = this.getRoot();
 
-		this._name = declaration._name;
-		this._value = declaration._value;
-		// this._disabled = declaration.getDisabled();
-
-		// XX this.prologue = declaration.prologue;
-		// XX this.epilogue = declaration.epilogue;
-
+		Utilities.offsetRange(declaration, this.range.startLine, this.range.startColumn);
 		Utilities.zeroRange(root, this);
 
-		this.range.startLine = oldStartLine + declaration.range.startLine;
-		this.range.startColumn = oldStartColumn + declaration.range.startColumn - 2;
-		this.range.endLine = oldStartLine + declaration.range.endLine;
-		this.range.endColumn = declaration.range.startLine === declaration.range.endLine ?
-		oldStartColumn + declaration.range.endColumn - 2 :
-			declaration.range.endColumn;
+		this.set(
+			declaration._name, declaration._colon, declaration._value, declaration._semicolon,
+			declaration._lcomment, declaration._rcomment
+		);
 
 		Utilities.insertRangeFromNode(root, this);
+
+		// recompute
+		this._text = null;
+		this._nameText = null;
+		this._tokens = null;
+		this._children = null;
 	}
 
 	getChildren(): T.INode[]
@@ -1870,6 +2194,49 @@ export class Declaration extends ASTNode
 
 		return s;
 	}
+
+	private set(
+		name: ComponentValueList, colon: Tokenizer.Token, value: DeclarationValue, semicolon: Tokenizer.Token,
+		lcomment?: Tokenizer.Token, rcomment?: Tokenizer.Token)
+	{
+		var t: T.INode;
+
+		this._name = name;
+		this._colon = colon;
+		this._value = value;
+		this._semicolon = semicolon;
+		this._lcomment = lcomment;
+		this._rcomment = rcomment;
+
+		// set parents
+		if (name)
+			this._name._parent = this;
+		if (colon)
+			this._colon.parent = this;
+		if (value)
+			this._value._parent = this;
+		if (semicolon)
+			this._semicolon.parent = this;
+		if (lcomment)
+			this._lcomment.parent = this;
+		if (rcomment)
+			this._rcomment.parent = this;
+
+		// set range
+		t = lcomment || name || colon || value || semicolon || rcomment;
+		if (t)
+		{
+			this.range.startLine = t.range.startLine;
+			this.range.startColumn = t.range.startColumn;
+		}
+
+		t = rcomment || semicolon || value || colon || name || lcomment;
+		if (t)
+		{
+			this.range.endLine = t.range.endLine;
+			this.range.endColumn = t.range.endColumn;
+		}
+	}
 }
 
 
@@ -1877,6 +2244,7 @@ export class DeclarationValue extends ComponentValueList
 {
 	private _text: string = null;
 	private _textWithoutImportant: string = null;
+
 
 	constructor(values: ComponentValue[])
 	{
@@ -1973,9 +2341,10 @@ export class AtRule extends AbstractRule
 	private _prelude: ComponentValueList;
 
 	private _block: ASTNode;
+	private _semicolon: Tokenizer.Token;
 
 
-	constructor(atKeyword: Tokenizer.Token, prelude?: ComponentValueList, block?: ASTNode)
+	constructor(atKeyword: Tokenizer.Token, prelude?: ComponentValueList, blockOrSemicolon?: T.INode)
 	{
 		var t: T.INode;
 
@@ -1983,7 +2352,8 @@ export class AtRule extends AbstractRule
 
 		this._atKeyword = atKeyword;
 		this._prelude = prelude;
-		this._block = block;
+		this._block = blockOrSemicolon instanceof ASTNode ? <ASTNode> blockOrSemicolon : null;
+		this._semicolon = blockOrSemicolon instanceof Tokenizer.Token ? <Tokenizer.Token> blockOrSemicolon : null;
 
 		// set parents
 		if (this._atKeyword)
@@ -1992,16 +2362,18 @@ export class AtRule extends AbstractRule
 			this._prelude._parent = this;
 		if (this._block)
 			this._block._parent = this;
+		if (this._semicolon)
+			this._semicolon.parent = this;
 
 		// set range
-		t = atKeyword || prelude || block;
+		t = atKeyword || prelude || blockOrSemicolon;
 		if (t)
 		{
 			this.range.startLine = t.range.startLine;
 			this.range.startColumn = t.range.startColumn;
 		}
 
-		t = block || prelude || atKeyword;
+		t = blockOrSemicolon || prelude || atKeyword;
 		if (t)
 		{
 			this.range.endLine = t.range.endLine;
@@ -2029,6 +2401,11 @@ export class AtRule extends AbstractRule
 		return this._block instanceof RuleList ? <RuleList> this._block : undefined;
 	}
 
+	getSemicolon(): Tokenizer.Token
+	{
+		return this._semicolon;
+	}
+
 	getChildren(): T.INode[]
 	{
 		if (this._children === null)
@@ -2041,6 +2418,8 @@ export class AtRule extends AbstractRule
 				this._children.push(this._prelude);
 			if (this._block)
 				this._children.push(this._block);
+			if (this._semicolon)
+				this._children.push(this._semicolon);
 		}
 
 		return this._children;
@@ -2056,6 +2435,8 @@ export class AtRule extends AbstractRule
 				this._tokens = this._tokens.concat(this._prelude.getTokens());
 			if (this._block)
 				this._tokens = this._tokens.concat(this._block.getTokens());
+			if (this._semicolon)
+				this._tokens.push(this._semicolon);
 		}
 
 		return this._tokens;
@@ -2076,6 +2457,8 @@ export class AtRule extends AbstractRule
 				result = result.concat(r);
 			if (that._block && (r = that._block.walk(walker)) !== undefined)
 				result = result.concat(r);
+			if (that._semicolon && (r = that._semicolon.walk(walker)) !== undefined)
+				result = result.concat(r);
 
 			return result;
 		});
@@ -2093,27 +2476,49 @@ export class AtRule extends AbstractRule
 			s += this._prelude.toString();
 		if (this._block)
 			s += this._block.toString();
+		if (this._semicolon)
+			s += this._semicolon.toString();
+
 		return s;
 	}
 }
 
+
 export class AtCharset extends AtRule
 {
-	private _charset: string = null;
+	private _charset: string;
 
-	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList)
+
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, semicolon: Tokenizer.Token);
+	constructor(charset: string);
+	constructor(...args: any[])
 	{
-		super(atKeyword, prelude);
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				trailingWhitespace(new Tokenizer.Token(Tokenizer.EToken.AT_KEYWORD, new SourceRange(), '@charset')),
+			isASTConstructor ?
+				<ComponentValueList> args[1] :
+				new ComponentValueList(new Parser.Parser(<string> args[0]).parseComponentValueList()),
+			isASTConstructor ?
+				<Tokenizer.Token> args[2] :
+				new Tokenizer.Token(Tokenizer.EToken.SEMICOLON, new SourceRange(), ';')
+		);
+
+		this._charset = null;
 	}
 
 	getCharset(): string
 	{
-		var first: ComponentValue;
+		var prelude = this.getPrelude(),
+			first: ComponentValue;
 
-		if (this._charset === null)
+		if (this._charset === null && prelude)
 		{
-			first = this.getPrelude()[0];
-			this._charset = first ? (first.getToken().value || first.getValue()) : '';
+			first = prelude[0];
+			this._charset = first ? first.getValue() : '';
 		}
 
 		return this._charset;
@@ -2123,12 +2528,30 @@ export class AtCharset extends AtRule
 
 export class AtCustomMedia extends AtRule
 {
-	private _extensionName: string = null;
-	private _media: ComponentValueList = null;
+	private _extensionName: string;
+	private _media: ComponentValueList;
 
-	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList)
+
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, semicolon: Tokenizer.Token);
+	constructor(extensionName: string, media: string);
+	constructor(...args: any[])
 	{
-		super(atKeyword, prelude);
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				trailingWhitespace(new Tokenizer.Token(Tokenizer.EToken.AT_KEYWORD, new SourceRange(), '@custom-media')),
+			isASTConstructor ?
+				<ComponentValueList> args[1] :
+				new ComponentValueList(new Parser.Parser(<string> args[0] + ' ' + <string> args[1]).parseComponentValueList()),
+			isASTConstructor ?
+				<Tokenizer.Token> args[2] :
+				new Tokenizer.Token(Tokenizer.EToken.SEMICOLON, new SourceRange(), ';')
+		);
+
+		this._extensionName = null;
+		this._media = null;
 	}
 
 	getExtensionName(): string
@@ -2149,14 +2572,15 @@ export class AtCustomMedia extends AtRule
 
 	private getExtensionNameAndMedia(): void
 	{
-		var children: T.INode[],
+		var prelude = this.getPrelude(),
+			children: T.INode[],
 			len: number,
 			i: number,
 			node: T.INode,
 			tokens: Tokenizer.Token[] = [],
 			nodeTokens: Tokenizer.Token[];
 
-		children = this.getPrelude().getChildren();
+		children = prelude && prelude.getChildren();
 		if (children)
 		{
 			len = children.length;
@@ -2169,7 +2593,7 @@ export class AtCustomMedia extends AtRule
 				if (nodeTokens && nodeTokens.length > 0 && nodeTokens[nodeTokens.length - 1].hasTrailingWhitespace())
 				{
 					this._extensionName = toStringNormalize(tokens);
-					this._media = new ComponentValueList(children.slice(i + 1));
+					this._media = new ComponentValueList(<IComponentValue[]> children.slice(i + 1));
 					break;
 				}
 			}
@@ -2185,17 +2609,31 @@ export class AtDocument extends AtRule
 	private _domain: string;
 	private _regexp: string;
 
-	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, block: any)
+
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, block: RuleList);
+	constructor(prelude: string, rules: RuleList);
+	constructor(...args: any[])
 	{
-		super(atKeyword, prelude, block);
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				trailingWhitespace(new Tokenizer.Token(Tokenizer.EToken.AT_KEYWORD, new SourceRange(), '@document')),
+			isASTConstructor ?
+				<ComponentValueList> args[1] :
+				new ComponentValueList(new Parser.Parser(<string> args[0]).parseComponentValueList()),
+			isASTConstructor ? <RuleList> args[2] : <RuleList> args[1]
+		);
 
 		var getArg = function(fnx: T.INode)
 		{
 			var args = (<FunctionComponentValue> fnx).getArgs();
-			return args.length > 0 ? args[0].toString() : '';
+			return args.length > 0 ? args[0].getValue() : '';
 		};
 
-		var len = prelude.getLength(),
+		var prelude = this.getPrelude(),
+			len = (prelude && prelude.getLength()) || 0,
 			i: number,
 			val: IComponentValue,
 			name: string;
@@ -2204,7 +2642,7 @@ export class AtDocument extends AtRule
 		{
 			val = prelude[i];
 			if (val instanceof ComponentValue && (<ComponentValue> val).getToken().token === Tokenizer.EToken.URL)
-				this._url = (<ComponentValue> val).getToken().value || (<ComponentValue> val).getValue();
+				this._url = (<ComponentValue> val).getValue();
 			else if (val instanceof FunctionComponentValue)
 			{
 				name = (<FunctionComponentValue> val).getName().value.toLowerCase();
@@ -2238,63 +2676,86 @@ export class AtDocument extends AtRule
 	{
 		return this._regexp;
 	}
-
-
-	/*
-	 static parseUrlSpecifier(specifier: string)
-	 {
-	 var matchUrl = specifier.match(/url\s*\(\s*['"]?([^'"\s]*)\s*['"]?\s*\)/);
-	 var matchUrlPrefix = specifier.match(/url-prefix\s*\(\s*['"]?([^'"\s]*)\s*['"]?\s*\)/);
-	 var matchDomain = specifier.match(/domain\s*\(\s*['"]?([^'"\s]*)\s*['"]?\s*\)/);
-	 var matchRegexp = specifier.match(/regexp\s*\(\s*['"]?([^'"\s]*)\s*['"]?\s*\)/);
-
-	 return {
-	 url: matchUrl && matchUrl[1],
-	 urlPrefix: matchUrlPrefix && matchUrlPrefix[1],
-	 domain: matchDomain && matchDomain[1],
-	 regexp: matchRegexp && matchRegexp[1]
-	 };
-	 }
-	 */
 }
 
 
 export class AtFontFace extends AtRule
 {
-	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, declarations: DeclarationList)
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, declarations: DeclarationList);
+	constructor(declarations: DeclarationList);
+	constructor(...args: any[])
 	{
-		super(atKeyword, prelude, declarations);
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				trailingWhitespace(new Tokenizer.Token(Tokenizer.EToken.AT_KEYWORD, new SourceRange(), '@font-face')),
+			isASTConstructor ? <ComponentValueList> args[1] : new ComponentValueList([]),
+			isASTConstructor ? <DeclarationList> args[2] : <DeclarationList> args[0]
+		);
 	}
 }
 
 
 export class AtHost extends AtRule
 {
-	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, rules: RuleList)
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, rules: RuleList);
+	constructor(rules: RuleList);
+	constructor(...args: any[])
 	{
-		super(atKeyword, prelude, rules);
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				trailingWhitespace(new Tokenizer.Token(Tokenizer.EToken.AT_KEYWORD, new SourceRange(), '@host')),
+			isASTConstructor ? <ComponentValueList> args[1] : new ComponentValueList([]),
+			isASTConstructor ? <RuleList> args[2] : <RuleList> args[0]
+		);
 	}
 }
 
 
 export class AtImport extends AtRule
 {
-	private _url: string = null;
-	private _media: ComponentValueList = null;
+	private _url: string;
+	private _media: ComponentValueList;
 
-	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList)
+
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, semicolon: Tokenizer.Token);
+	constructor(url: string, media?: string);
+	constructor(...args: any[])
 	{
-		super(atKeyword, prelude);
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				trailingWhitespace(new Tokenizer.Token(Tokenizer.EToken.AT_KEYWORD, new SourceRange(), '@import')),
+			isASTConstructor ?
+				<ComponentValueList> args[1] :
+				new ComponentValueList(new Parser.Parser(
+					'url("' + (<string> args[0]) + '")' + (args[1] === undefined ? '' : (' ' + (<string> args[1])))
+				).parseComponentValueList()),
+			isASTConstructor ?
+				<Tokenizer.Token> args[2] :
+				new Tokenizer.Token(Tokenizer.EToken.SEMICOLON, new SourceRange(), ';')
+		);
+
+		this._url = null;
+		this._media = null;
 	}
 
 	getUrl(): string
 	{
-		var first: ComponentValue;
+		var prelude = this.getPrelude(),
+			first: ComponentValue;
 
-		if (this._url === null)
+		if (this._url === null && prelude)
 		{
-			first = this.getPrelude()[0];
-			this._url = first ? (first.getToken().value || first.getValue()) : '';
+			first = prelude[0];
+			this._url = first ? first.getValue() : '';
 		}
 
 		return this._url;
@@ -2302,54 +2763,58 @@ export class AtImport extends AtRule
 
 	getMedia(): ComponentValueList
 	{
-		var children: T.INode[];
+		var prelude = this.getPrelude(),
+			children: T.INode[];
 
-		if (this._media === null)
+		if (this._media === null && prelude)
 		{
-			children = this.getPrelude().getChildren();
+			children = prelude.getChildren();
 			if (children)
 			{
-				this._media = new ComponentValueList(children.slice(1));
+				this._media = new ComponentValueList(<IComponentValue[]> children.slice(1));
 				this._media._parent = this;
 			}
 		}
 
 		return this._media;
 	}
-
-	/*
-	 static parseUrlAndMediaList = function(text: string)
-	 {
-	 var match =
-	 Utilities.startsWith(text, '@import') ?
-	 text.match(/@import\s*(?:url\s*\()?\s*['"]?([^'") ]*)(?:['"]?\s*\))?\s*(.*?)[\s;]*$/i) :
-	 text.match(/(?:url\s*\()?\s*['"]?([^'") ]*)(?:['"]?\s*\))?\s*(.*?)[\s;]*$/i);
-
-	 return {
-	 url: match && match[1],
-	 media: match && match[2]
-	 };
-	 }
-	 */
 }
 
 
 export class AtKeyframes extends AtRule
 {
-	private _animationName: string = null;
+	private _animationName: string;
 
-	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, rules: RuleList)
+
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, rules: RuleList);
+	constructor(animationName: string, rules: RuleList);
+	constructor(...args: any[])
 	{
-		super(atKeyword, prelude, rules);
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				trailingWhitespace(new Tokenizer.Token(Tokenizer.EToken.AT_KEYWORD, new SourceRange(), '@keyframes')),
+			isASTConstructor ?
+				<ComponentValueList> args[1] :
+				new ComponentValueList(
+					[ new ComponentValue(new Tokenizer.Token(Tokenizer.EToken.IDENT, new SourceRange(), <string> args[0])) ]
+				),
+			isASTConstructor ? <RuleList> args[2] : <RuleList> args[1]
+		);
+
+		this._animationName = null;
 	}
 
 	getAnimationName(): string
 	{
-		var first: ComponentValue;
+		var prelude = this.getPrelude(),
+			first: ComponentValue;
 
-		if (this._animationName === null)
+		if (this._animationName === null && prelude)
 		{
-			first = this.getPrelude()[0];
+			first = prelude[0];
 			this._animationName = first ? first.getValue() : '';
 		}
 
@@ -2360,14 +2825,33 @@ export class AtKeyframes extends AtRule
 
 export class AtMedia extends AtRule
 {
-	constructor(atKeyword: Tokenizer.Token, media: ComponentValueList, rules: RuleList)
+	private _media: ComponentValueList;
+
+
+	constructor(atKeyword: Tokenizer.Token, media: ComponentValueList, rules: RuleList);
+	constructor(media: string, rules: RuleList);
+	constructor(...args: any[])
 	{
-		super(atKeyword, media, rules);
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				trailingWhitespace(new Tokenizer.Token(Tokenizer.EToken.AT_KEYWORD, new SourceRange(), '@media')),
+			isASTConstructor ?
+				<ComponentValueList> args[1] :
+				new ComponentValueList(new Parser.Parser(<string> args[0]).parseComponentValueList()),
+			isASTConstructor ? <RuleList> args[2] : <RuleList> args[1]
+		);
+
+		this._media = null;
 	}
 
 	getMedia(): ComponentValueList
 	{
-		return this.getPrelude();
+		if (this._media === null)
+			this._media = this.getPrelude() || new ComponentValueList([]);
+		return this._media;
 	}
 }
 
@@ -2377,24 +2861,50 @@ export class AtNamespace extends AtRule
 	private _url: string;
 	private _prefix: string;
 
-	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList)
-	{
-		var first: ComponentValue,
-			second: ComponentValue;
 
-		super(atKeyword, prelude);
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, semicolon: Tokenizer.Token);
+	constructor(url: string, prefix?: string);
+	constructor(...args: any[])
+	{
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				trailingWhitespace(new Tokenizer.Token(Tokenizer.EToken.AT_KEYWORD, new SourceRange(), '@namespace')),
+			isASTConstructor ?
+				<ComponentValueList> args[1] :
+				new ComponentValueList([
+					new ComponentValue(trailingWhitespace(new Tokenizer.Token(
+						Tokenizer.EToken.IDENT, new SourceRange(), <string> args[1] || ''
+					))),
+					new ComponentValue(new Tokenizer.Token(
+						Tokenizer.EToken.URL, new SourceRange(), '@url("' + <string> args[0] + '")', <string> args[0])
+					)
+				]),
+			isASTConstructor ?
+				<Tokenizer.Token> args[2] :
+				new Tokenizer.Token(Tokenizer.EToken.SEMICOLON, new SourceRange(), ';')
+		);
+
+		var prelude = this.getPrelude(),
+			first: ComponentValue,
+			second: ComponentValue;
 
 		this._url = '';
 		this._prefix = '';
 
-		first = prelude[0];
-		if (prelude.getLength() === 1)
-			this._url = first.getToken().value || first.getValue();
-		else if (prelude.getLength() > 1)
+		if (prelude)
 		{
-			this._prefix = first.getValue();
-			second = prelude[1];
-			this._url = second.getToken().value || second.getValue();
+			first = prelude[0];
+			if (prelude.getLength() === 1)
+				this._url = first.getValue();
+			else if (prelude.getLength() > 1)
+			{
+				this._prefix = first.getValue();
+				second = prelude[1];
+				this._url = second.getValue();
+			}
 		}
 	}
 
@@ -2407,41 +2917,70 @@ export class AtNamespace extends AtRule
 	{
 		return this._prefix;
 	}
-
-	/*
-	 static parseNamespace(specifier: string)
-	 {
-	 var match = Utilities.startsWith(specifier, '@namespace') ?
-	 specifier.match(/@namespace\s+([^\s]+)\s+(?:url)?\s*\(?\s*['"]?([^'");]*)/) :
-	 specifier.match(/([^\s]+)\s+(?:url)?\s*\(?\s*['"]?([^'");]*)/);
-
-	 return {
-	 prefix: match && match[1],
-	 uri: match && match[2]
-	 };
-	 }
-	 */
 }
 
 
 export class AtPage extends AtRule
 {
-	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, declarations: DeclarationList)
+	private _pseudoClass: ComponentValueList;
+
+
+	constructor(atKeyword: Tokenizer.Token, prelude: ComponentValueList, declarations: DeclarationList);
+	constructor(pseudoClass: string, declarations: DeclarationList);
+	constructor(...args: any[])
 	{
-		super(atKeyword, prelude, declarations);
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				trailingWhitespace(new Tokenizer.Token(Tokenizer.EToken.AT_KEYWORD, new SourceRange(), '@page')),
+			isASTConstructor ?
+				<ComponentValueList> args[1] :
+				new ComponentValueList([
+					new ComponentValue(new Tokenizer.Token(Tokenizer.EToken.IDENT, new SourceRange(), <string> args[0]))
+				]),
+			isASTConstructor ? <DeclarationList> args[2] : <DeclarationList> args[1]
+		);
+
+		this._pseudoClass = null;
 	}
 
 	getPseudoClass(): ComponentValueList
 	{
-		return this.getPrelude();
+		if (this._pseudoClass === null)
+			this._pseudoClass = this.getPrelude() || new ComponentValueList([]);
+		return this._pseudoClass;
 	}
 }
 
 
 export class AtSupports extends AtRule
 {
-	constructor(atKeyword: Tokenizer.Token, supports: ComponentValueList, rules: RuleList)
+	private _supports: ComponentValueList;
+
+
+	constructor(atKeyword: Tokenizer.Token, supports: ComponentValueList, rules: RuleList);
+	constructor(supports: string, rules: RuleList);
+	constructor(...args: any[])
 	{
-		super(atKeyword, supports, rules);
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				trailingWhitespace(new Tokenizer.Token(Tokenizer.EToken.AT_KEYWORD, new SourceRange(), '@supports')),
+			isASTConstructor ?
+				<ComponentValueList> args[1] :
+				new ComponentValueList(new Parser.Parser(<string> args[0]).parseComponentValueList()),
+			isASTConstructor ? <RuleList> args[2] : <RuleList> args[1]
+		);
+	}
+
+	getSupports(): ComponentValueList
+	{
+		if (this._supports === null)
+			this._supports = this.getPrelude() || new ComponentValueList([]);
+		return this._supports;
 	}
 }

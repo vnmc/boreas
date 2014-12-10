@@ -1,9 +1,15 @@
+var DEBUG = false;
+
+var Tokenizer = require('../lib/tokenizer');
+var Utilities = require('../lib/utilities');
+
+
 function checkRanges(node, level)
 {
     if (level === undefined)
         level = 0;
 
-    //console.log('(%d):: %s -> %s', level, node.toString(), JSON.stringify(node.range));
+    DEBUG && console.log('(%d):: %s -> %s', level, node.toString(), JSON.stringify(node.range));
 
     node.range.startLine.should.not.be.above(node.range.endLine);
     if (node.range.startLine === node.range.endLine)
@@ -17,7 +23,7 @@ function checkRanges(node, level)
     {
         var child = children[i];
 
-        //console.log('(%d):: [%d] %s -> %s', level, i, child.toString(), JSON.stringify(child.range));
+        DEBUG && console.log('(%d):: [%d] %s -> %s', level, i, child.toString(), JSON.stringify(child.range));
 
         child.range.startLine.should.not.be.below(node.range.startLine);
         child.range.endLine.should.not.be.above(node.range.endLine);
@@ -40,5 +46,24 @@ function checkRanges(node, level)
     }
 }
 
+function checkRangeContents(node, src, level)
+{
+    if (level === undefined)
+        level = 0;
+    if (src === undefined && level === 0)
+        src = node.toString();
+
+    DEBUG && console.log('(%d):: %s -> %s', level, node.toString(), JSON.stringify(node.range));
+
+    Utilities.getTextFromRange(src, node.range).should.eql(node.toString());
+
+    var children = node.getChildren();
+    var len = children.length;
+
+    for (var i = 0; i < len; i++)
+        checkRangeContents(children[i], src, level + 1);
+}
+
 
 exports.checkRanges = checkRanges;
+exports.checkRangeContents = checkRangeContents;

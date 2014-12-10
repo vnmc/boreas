@@ -2,6 +2,7 @@
 // IMPORT MODULES
 // ==================================================================
 
+import T = require('./types');
 import AST = require('./ast');
 import Tokenizer = require('./tokenizer');
 import Utilities = require('./utilities');
@@ -11,7 +12,7 @@ import Utilities = require('./utilities');
 // TYPE DECLARATIONS
 // ==================================================================
 
-interface IAtRuleSpec
+export interface IAtRuleSpec
 {
 	keyword: string;
 	astClass: new(atKeyword: Tokenizer.Token, prelude?: AST.ComponentValueList, block?: any) => AST.AtRule;
@@ -24,12 +25,81 @@ interface IParseError
 	parsedNodes: any[];
 }
 
-enum EAtRule
+export enum EAtRule
 {
 	SIMPLE,
 	RULE_LIST,
 	DECLARATION_LIST
 }
+
+
+// ==================================================================
+// CONVENIENCE METHODS
+// ==================================================================
+
+export function parse(styleSheetSrc: string, options?: Tokenizer.ITokenizerOptions): AST.StyleSheet
+{
+	return new Parser(styleSheetSrc, options).parseStyleSheet();
+}
+
+export function parseRule(ruleSrc: string, options?: Tokenizer.ITokenizerOptions): AST.AbstractRule
+{
+	var parser = new Parser(ruleSrc, options),
+		t = parser.getCurrentToken();
+
+	if (!t)
+		return null;
+
+	if (t.token === Tokenizer.EToken.AT_KEYWORD)
+		return parser.parseAtRule();
+
+	return parser.parseQualifiedRule();
+}
+
+export function parseSelectors(selectorsSrc: string, options?: Tokenizer.ITokenizerOptions): AST.SelectorList
+{
+	return new Parser(selectorsSrc, options).parseSelectorList();
+}
+
+export function parseSelector(selectorSrc: string, options?: Tokenizer.ITokenizerOptions): AST.Selector
+{
+	return new Parser(selectorSrc, options).parseSelector();
+}
+
+export function parseDeclarations(declarationsSrc: string, options?: Tokenizer.ITokenizerOptions): AST.DeclarationList
+{
+	return new Parser(declarationsSrc, options).parseDeclarationList();
+}
+
+export function parseDeclaration(declarationSrc: string, options?: Tokenizer.ITokenizerOptions): AST.Declaration
+{
+	var parser = new Parser(declarationSrc, options),
+		t = parser.getCurrentToken(),
+		token: Tokenizer.Token,
+		len: number,
+		i: number;
+
+	if (!t)
+		return null;
+
+	// check whether this is a disabled (commented out) declaration
+	if (t.token === Tokenizer.EToken.EOF)
+	{
+		if (!t.leadingTrivia)
+			return null;
+
+		len = t.leadingTrivia.length;
+		for (i = 0; i < len; i++)
+		{
+			token = t.leadingTrivia[i];
+			if (token.token === Tokenizer.EToken.COMMENT)
+				return parser.parseDisabledDeclaration(token);
+		}
+	}
+
+	return parser.parseDeclaration();
+}
+
 
 // ==================================================================
 // PARSER IMPLEMENTATION
@@ -63,6 +133,7 @@ export class Parser
 	}
 
 	/**
+	 * Parses a style sheet.
 	 *
 	 * @returns {AST.StyleSheet}
 	 */
@@ -73,6 +144,8 @@ export class Parser
 	}
 
 	/**
+	 * Parses a block of rules, i.e., rules contained within curly braces,
+	 * "{" (rules) "}".
 	 *
 	 * @returns {AST.RuleList}
 	 */
@@ -82,9 +155,11 @@ export class Parser
 	}
 
 	/**
+	 * Parses a list of rules.
 	 *
-	 * @param isBlock
-	 * @param isTopLevel
+	 * @param isBlock If set to true, it is expected that the rules are enclosed in curly braces
+	 * @param isTopLevel If set to true, the source to parse can contain CDO and CDC tokens.
+	 *
 	 * @returns {AST.RuleList}
 	 */
 	parseRuleList(isBlock?: boolean, isTopLevel?: boolean): AST.RuleList
@@ -174,6 +249,7 @@ export class Parser
 	}
 
 	/**
+	 * Parses a qualified rule.
 	 *
 	 * @returns {AST.Rule}
 	 */
@@ -219,6 +295,7 @@ export class Parser
 	}
 
 	/**
+	 * Parses an (arbitrary) @rule.
 	 *
 	 * @returns {AST.AtRule}
 	 */
@@ -228,7 +305,7 @@ export class Parser
 			spec = this.getAtRuleSpec(atKeyword),
 			preludeValues: AST.ComponentValue[],
 			prelude: AST.ComponentValueList = undefined,
-			block: AST.ASTNode,
+			blockOrSemicolon: T.INode,
 			t: Tokenizer.Token,
 			token: Tokenizer.EToken;
 
@@ -242,11 +319,35 @@ export class Parser
 		if (spec)
 		{
 			if (spec.type === EAtRule.DECLARATION_LIST)
-				block = this.parseDeclarationList();
+			{
+				try
+				{
+					blockOrSemicolon = this.parseDeclarationList();
+				}
+				catch (e)
+				{
+					blockOrSemicolon = AST.DeclarationList.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.RBRACE ], []));
+				}
+			}
 			else if (spec.type === EAtRule.RULE_LIST)
-				block = this.parseRuleBlock();
+			{
+				try
+				{
+					blockOrSemicolon = this.parseRuleBlock();
+				}
+				catch (e)
+				{
+					blockOrSemicolon = AST.RuleList.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.RBRACE ], []));
+				}
+			}
+			else if (spec.type === EAtRule.SIMPLE)
+			{
+				this.expect(Tokenizer.EToken.SEMICOLON);
+				blockOrSemicolon = this._currentToken;
+				this.nextToken();
+			}
 
-			return (atKeyword || prelude || block) ? new spec.astClass(atKeyword, prelude, block) : null;
+			return (atKeyword || prelude || blockOrSemicolon) ? new spec.astClass(atKeyword, prelude, blockOrSemicolon) : null;
 		}
 
 		// not a registered at-rule: create a generic at-rule object
@@ -266,15 +367,16 @@ export class Parser
 			else if (token === Tokenizer.EToken.LBRACE)
 			{
 				// Consume a simple block and assign it to the at-rule’s block. Return the at-rule.
-				block = this.parseBlock();
+				blockOrSemicolon = this.parseBlock();
 				break;
 			}
 		}
 
-		return (atKeyword || prelude || block) ? new AST.AtRule(atKeyword, prelude, block) : null;
+		return (atKeyword || prelude || blockOrSemicolon) ? new AST.AtRule(atKeyword, prelude, blockOrSemicolon) : null;
 	}
 
 	/**
+	 * Parses a list of declarations (e.g., properties).
 	 *
 	 * @returns {AST.DeclarationList}
 	 */
@@ -340,6 +442,7 @@ export class Parser
 	}
 
 	/**
+	 * Parses a single declaration.
 	 *
 	 * @returns {AST.Declaration}
 	 */
@@ -393,6 +496,14 @@ export class Parser
 		return (name || colon || value || semicolon) ? new AST.Declaration(name, colon, value, semicolon, lcomment, rcomment) : null;
 	}
 
+
+	/**
+	 * Parses the trailing tokens of the current token for disabled declarations
+	 * (declarations which are commented out in the source code).
+	 *
+	 * @param token
+	 * @returns {*}
+	 */
 	parseTrailingTokensForDisabledDeclarations(token: Tokenizer.Token): AST.Declaration[]
 	{
 		var declarations: AST.Declaration[],
@@ -403,7 +514,23 @@ export class Parser
 			i: number,
 			t: Tokenizer.Token,
 			tokens: Tokenizer.Token[],
-			lastToken: Tokenizer.Token;
+			lastToken = token;
+
+		var updateRange = function(t: Tokenizer.Token)
+		{
+			var trivia = t.trailingTrivia,
+				range = trivia[trivia.length - 1].range,
+				endLine = range.endLine,
+				endColumn = range.endColumn,
+				node: T.INode = t;
+
+			// update the range of t and all its ancestors to include the trailing trivia
+			for ( ; node; node = node.getParent())
+			{
+				node.range.endLine = endLine;
+				node.range.endColumn = endColumn;
+			}
+		};
 
 		if (!token.trailingTrivia)
 			return null;
@@ -423,6 +550,7 @@ export class Parser
 				{
 					declarations.push(declaration);
 
+					updateRange(lastToken);
 					tokens = declaration.getTokens();
 					lastToken = tokens[tokens.length - 1];
 					if (!lastToken.trailingTrivia)
@@ -436,9 +564,16 @@ export class Parser
 			lastTrailingTrivia.push(t);
 		}
 
+		updateRange(lastToken);
 		return declarations;
 	}
 
+	/**
+	 * Parses a single disabled (i.e., commented out) declaration.
+	 *
+	 * @param token
+	 * @returns {*}
+	 */
 	parseDisabledDeclaration(token: Tokenizer.Token): AST.Declaration
 	{
 		var declaration: AST.Declaration;
@@ -462,6 +597,7 @@ export class Parser
 	}
 
 	/**
+	 * Parses a declaration value (i.e., the part that comes after the ":" in a declaration).
 	 *
 	 * @returns {AST.DeclarationValue}
 	 */
@@ -472,6 +608,7 @@ export class Parser
 	}
 
 	/**
+	 * Parses a list of selectors.
 	 *
 	 * @returns {AST.SelectorList}
 	 */
@@ -501,6 +638,7 @@ export class Parser
 	}
 
 	/**
+	 * Parses a single selector.
 	 *
 	 * @returns {AST.Selector}
 	 */
@@ -527,6 +665,7 @@ export class Parser
 	}
 
 	/**
+	 * Parses a list of component values.
 	 *
 	 * @returns {AST.ComponentValueList}
 	 */
@@ -591,6 +730,8 @@ export class Parser
 	}
 
 	/**
+	 * Parses a block component value (any block enclosed in parentheses, square brackets,
+	 * or curly braces).
 	 *
 	 * @returns {AST.BlockComponentValue}
 	 */
@@ -651,13 +792,14 @@ export class Parser
 		}
 		catch (e)
 		{
-			this.rethrow(e, <AST.ASTNode[]> values);
+			this.rethrow(e, <T.INode[]> values);
 		}
 
 		return new AST.BlockComponentValue(startToken, t, values);
 	}
 
 	/**
+	 * Parses a function.
 	 *
 	 * @returns {AST.FunctionComponentValue}
 	 */
@@ -714,7 +856,15 @@ export class Parser
 		return (name || t || (args.length > 0)) ? new AST.FunctionComponentValue(name, t, args) : null;
 	}
 
+
+	getCurrentToken(): Tokenizer.Token
+	{
+		return this._currentToken;
+	}
+
+
 	/**
+	 * Returns the next token in the token stream.
 	 *
 	 * @returns {IToken}
 	 */
@@ -725,10 +875,14 @@ export class Parser
 
 
 	/**
+	 * Makes sure that the current token is one of the token types passed
+	 * as arguments to the method.
+	 * If the current token doesn't match this specification, an exception
+	 * (of type IParseError) is thrown.
 	 *
 	 * @param tokens
 	 */
-	private expect(...args: any[])
+	private expect(...args: any[]): void
 	{
 		var tokens: Tokenizer.EToken[] = [],
 			parsedNodes: any[] = [],
@@ -766,7 +920,14 @@ export class Parser
 	}
 
 
-	private rethrow(e: IParseError, nodes: AST.ASTNode[])
+	/**
+	 * Concatenates the AST nodes "nodes" to the ones contained in the parse error object
+	 * "e" and re-throws the exception.
+	 *
+	 * @param e
+	 * @param nodes
+	 */
+	private rethrow(e: IParseError, nodes: T.INode[]): void
 	{
 		// prepend the already parsed values to the "parsedNodes" of the error
 		// and re-throw the error
@@ -839,6 +1000,9 @@ export class Parser
 
 
 	/**
+	 * Finds the specification for the @rule with @-keyword "atKeyword".
+	 * If no rule has been registered (in the global variable "atRules"),
+	 * null is returned.
 	 *
 	 * @param atKeyword
 	 * @returns {*}

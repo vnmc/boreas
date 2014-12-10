@@ -4,6 +4,7 @@
 
 import T = require('./types');
 import AST = require('./ast');
+import Tokenizer = require('./tokenizer');
 
 
 var _hasTrim = typeof String.prototype.trim === 'function';
@@ -108,21 +109,20 @@ export function insertRange(range: T.ISourceRange, insertRange: T.ISourceRange)
 	var oldEndLine = range.endLine;
 	var oldEndColumn = range.endColumn;
 
-	if (oldStartLine === insertRange.startLine)
+	if (oldStartLine === insertRange.startLine && oldStartColumn >= insertRange.startColumn)
 	{
-		if (oldStartColumn >= insertRange.startColumn)
-		{
-			range.startLine += lineOffset;
-			range.startColumn += columnOffset;
-		}
-
-		if (oldEndLine === oldStartLine && oldEndColumn > insertRange.startColumn)
-			range.endColumn += columnOffset;
+		range.startLine += lineOffset;
+		range.startColumn += columnOffset;
 	}
 	else if (oldStartLine > insertRange.startLine)
 		range.startLine += lineOffset;
 
-	if (oldEndLine > insertRange.startLine || (oldEndLine === insertRange.startLine && oldEndColumn > insertRange.startColumn))
+	if (oldEndLine === insertRange.startLine && oldEndColumn > insertRange.startColumn)
+	{
+		range.endLine += lineOffset;
+		range.endColumn += columnOffset;
+	}
+	else if (oldEndLine > insertRange.startLine)
 		range.endLine += lineOffset;
 }
 
@@ -260,14 +260,10 @@ export function insertRangeFromNode(ast: T.INode, nodeModified: T.INode, offset?
 }
 
 
-export function zeroRange(ast: T.INode, nodeModified: T.INode): void
+export function zeroRange(ast: T.INode, nodeModifiedOrRange: any): void
 {
-	var range = new AST.SourceRange(
-		nodeModified.range.startLine,
-		nodeModified.range.startColumn,
-		nodeModified.range.endLine,
-		nodeModified.range.endColumn
-	);
+	var r : T.ISourceRange,
+		range: T.ISourceRange;
 
 	var updateRecursive = function(node: T.INode)
 	{
@@ -279,6 +275,21 @@ export function zeroRange(ast: T.INode, nodeModified: T.INode): void
 		for (var i = 0; i < len; i++)
 			updateRecursive(children[i]);
 	};
+
+	if ((nodeModifiedOrRange instanceof AST.ASTNode) || (nodeModifiedOrRange instanceof Tokenizer.Token))
+	{
+		r = (<T.INode> nodeModifiedOrRange).range;
+		range = new AST.SourceRange(r.startLine, r.startColumn, r.endLine, r.endColumn);
+	}
+	else if (nodeModifiedOrRange.startLine !== undefined && nodeModifiedOrRange.startColumn !== undefined &&
+		nodeModifiedOrRange.endLine !== undefined && nodeModifiedOrRange.endColumn !== undefined)
+	{
+		range = new AST.SourceRange(
+			nodeModifiedOrRange.startLine, nodeModifiedOrRange.startColumn, nodeModifiedOrRange.endLine, nodeModifiedOrRange.endColumn
+		);
+	}
+	else
+		return;
 
 	// console.log('Zeroing range of ', nodeModified.toJSON());
 	// console.log('Before zeroing:', ast.toJSON());
@@ -320,6 +331,10 @@ export function offsetRange(ast: T.INode, lineOffset: number, columnOffset: numb
 
 	var offsetRecursive = function(node: T.INode)
 	{
+		var children = node.getChildren(),
+			len = children.length,
+			i: number;
+
 		// only offset the columns if the node starts/ends on the same line as the top node
 		if (node.range.startLine === startLine)
 			node.range.startColumn += columnOffset;
@@ -330,13 +345,12 @@ export function offsetRange(ast: T.INode, lineOffset: number, columnOffset: numb
 		node.range.startLine += lineOffset;
 		node.range.endLine += lineOffset;
 
-		var children = node.getChildren();
-		var len = children.length;
-		for (var i = 0; i < len; i++)
+		for (i = 0; i < len; i++)
 			offsetRecursive(children[i]);
 	};
 
-	offsetRecursive(ast);
+	if (lineOffset !== 0 || columnOffset !== 0)
+		offsetRecursive(ast);
 }
 
 

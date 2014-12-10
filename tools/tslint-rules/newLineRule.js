@@ -80,7 +80,8 @@ NewLineWalker.prototype.visitFunctionExpression = function(node)
 
 NewLineWalker.prototype.visitMemberFunctionDeclaration = function(node)
 {
-    this.checkNewLine(TypeScript.lastToken(node.callSignature), node);
+    if (node.block)
+        this.checkNewLine(TypeScript.lastToken(node.callSignature), node);
     Lint.StateAwareRuleWalker.prototype.visitMemberFunctionDeclaration.call(this, node);
 };
 

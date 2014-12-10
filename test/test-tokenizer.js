@@ -365,7 +365,7 @@ describe('CSS-Tokenizer', function()
 
 	it('should tokenize comments if tokenizeComments===true', function()
 	{
-		var t = new Tokenizer('/* color: red; */ xxx', true);
+		var t = new Tokenizer('/* color: red; */ xxx', { tokenizeComments: true });
 
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.DELIM);

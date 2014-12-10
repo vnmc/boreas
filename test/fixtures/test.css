@@ -1,3 +1,5 @@
-abbr, acronym {
-    border: 0;
+#mainColLeft .featureStory ul {
+    /*padding-left: 21px;*/
+    color: blue;
+    /* margin: 0 !important; */
 }

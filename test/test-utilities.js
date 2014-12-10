@@ -150,6 +150,50 @@ describe('Utilities', function()
 			r.endColumn.should.eql(0);
 		});
 
+		// 0,0-3,1  3,0-3,10  =>  0,0-3,11
+		it('multiline14', function()
+		{
+			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 1 };
+			CSSParser.insertRange(r, { startLine: 3, startColumn: 0, endLine: 3, endColumn: 10 });
+			r.startLine.should.eql(0);
+			r.startColumn.should.eql(0);
+			r.endLine.should.eql(3);
+			r.endColumn.should.eql(11);
+		});
+
+		// 0,0-3,1  3,0-4,10  =>  0,0-4,11
+		it('multiline15', function()
+		{
+			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 1 };
+			CSSParser.insertRange(r, { startLine: 3, startColumn: 0, endLine: 4, endColumn: 10 });
+			r.startLine.should.eql(0);
+			r.startColumn.should.eql(0);
+			r.endLine.should.eql(4);
+			r.endColumn.should.eql(11);
+		});
+
+		// 0,0-3,6  3,1-4,10  =>  0,0-4,15
+		it('multiline16', function()
+		{
+			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 1 };
+			CSSParser.insertRange(r, { startLine: 3, startColumn: 0, endLine: 4, endColumn: 10 });
+			r.startLine.should.eql(0);
+			r.startColumn.should.eql(0);
+			r.endLine.should.eql(4);
+			r.endColumn.should.eql(11);
+		});
+
+		// 0,0-3,6  3,1-3,10  =>  0,0-3,15
+		it('multiline17', function()
+		{
+			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 1 };
+			CSSParser.insertRange(r, { startLine: 3, startColumn: 0, endLine: 4, endColumn: 10 });
+			r.startLine.should.eql(0);
+			r.startColumn.should.eql(0);
+			r.endLine.should.eql(4);
+			r.endColumn.should.eql(11);
+		});
+
 		// 1,2-1,4  1,1-1,8  =>  1,9-1,11   9=2-1+8
 		it('singleline1', function()
 		{

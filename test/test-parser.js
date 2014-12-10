@@ -279,17 +279,33 @@ describe('CSS-Parser', function()
 			});
 		});
 
-		it('@page', function()
+		describe('@page', function()
 		{
-			var css = '@page :left { margin:2in; }';
-			var ast = new P.Parser(css).parseStyleSheet();
+			it('no pseudo class', function()
+			{
+				var css = '@page { margin:2in; }';
+				var ast = new P.Parser(css).parseStyleSheet();
 
-			ast.toString().should.eql(css);
+				ast.toString().should.eql(css);
 
-			var rule = ast.getRules()[0];
-			rule.should.be.an.instanceOf(AST.AtPage);
-			rule.getPseudoClass().toString().should.eql(':left ');
-			rule.getDeclarations().getLength().should.eql(1);
+				var rule = ast.getRules()[0];
+				rule.should.be.an.instanceOf(AST.AtPage);
+				rule.getPseudoClass().getLength().should.eql(0);
+				rule.getDeclarations().getLength().should.eql(1);
+			});
+
+			it('with pseudo class', function()
+			{
+				var css = '@page :left { margin:2in; }';
+				var ast = new P.Parser(css).parseStyleSheet();
+
+				ast.toString().should.eql(css);
+
+				var rule = ast.getRules()[0];
+				rule.should.be.an.instanceOf(AST.AtPage);
+				rule.getPseudoClass().toString().should.eql(':left ');
+				rule.getDeclarations().getLength().should.eql(1);
+			});
 		});
 
 		it('@supports', function()

@@ -19,7 +19,7 @@ export function beautify(node: T.INode)
             return s;
         };
 
-    return node.walk(function(ast: T.INode, descend: () => any[], walker: AST.IASTWalker): any
+    return Utilities.trim(node.walk(function(ast: T.INode, descend: () => any[], walker: AST.IASTWalker): any
     {
         // generic result for nodes with errors
         if ((ast instanceof AST.ASTNode) && (<AST.ASTNode> ast).hasError())
@@ -39,7 +39,7 @@ export function beautify(node: T.INode)
             else if (token === Tokenizer.EToken.RBRACE)
             {
                 level--;
-                ret = newline() + ret + newline() + newline();
+                ret = newline() + ret + newline();
             }
         }
 
@@ -76,6 +76,10 @@ export function beautify(node: T.INode)
                 ret = join(descend());
         }
 
+        // add a newline after a rule
+        else if (ast instanceof AST.AbstractRule)
+            ret = join(descend()) + newline();
+
         // default
         else
             ret = join(descend());
@@ -83,7 +87,7 @@ export function beautify(node: T.INode)
         prevAst = ast;
         prevRet = ret;
         return ret;
-    });
+    }));
 }
 
 function join(arr: any): string

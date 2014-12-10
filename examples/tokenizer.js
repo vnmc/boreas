@@ -2,6 +2,7 @@ var Tokenizer = require('../lib/tokenizer');
 
 // example CSS code
 var src = '\t* {\n\t/* first prop */ color: blue;}\n';
+src = 'a\n\tb';
 
 // create the tokenizer
 var tokenizer = new Tokenizer.Tokenizer(src);

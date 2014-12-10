@@ -1,6 +1,9 @@
 var should = require('should');
 
-var CSSParser = require('../lib/ast');
+var AST = require('../lib/ast');
+var Parser = require('../lib/parser');
+var Utils = require('./utils');
+
 
 describe('AST', function()
 {
@@ -9,39 +12,59 @@ describe('AST', function()
 		it('should be appended', function()
 		{
 			var css = 'body {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}';
-			var ast = CSSParser.parse(css);
-			ast.rules[0].selectors.insertSelector('p + code');
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules[0].selectors.children.length.should.eql(2);
-			ast.rules[0].selectors.selectors[0].text.should.eql('body');
-			ast.rules[0].selectors.selectors[1].text.should.eql('p + code');
-			checkRanges(ast);
+			var selectors = ast.getRules()[0].getSelectors();
+
+			selectors.insertSelector(Parser.parseSelector('p + code'));
+
+			selectors.getLength().should.eql(2);
+			selectors[0].getText().should.eql('body');
+			selectors[1].getText().should.eql('p + code');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 
 		it('should be inserted in the middle', function()
 		{
 			var css = 'body, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}';
-			var ast = CSSParser.parse(css);
-			ast.rules[0].selectors.insertSelector('pre', 1);
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules[0].selectors.children.length.should.eql(3);
-			ast.rules[0].selectors.selectors[0].text.should.eql('body');
-			ast.rules[0].selectors.selectors[1].text.should.eql('pre');
-			ast.rules[0].selectors.selectors[2].text.should.eql('td');
-			checkRanges(ast);
+			var selectors = ast.getRules()[0].getSelectors();
+
+			selectors.insertSelector(Parser.parseSelector('pre'), 1);
+			//console.log(ast.toString());
+
+			selectors.getLength().should.eql(3);
+			selectors[0].getText().should.eql('body');
+			selectors[1].getText().should.eql('pre');
+			selectors[2].getText().should.eql('td');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 
 		it('should be prepended', function()
 		{
 			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}';
-			var ast = CSSParser.parse(css);
-			ast.rules[0].selectors.insertSelector('table', 0);
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules[0].selectors.children.length.should.eql(3);
-			ast.rules[0].selectors.selectors[0].text.should.eql('table');
-			ast.rules[0].selectors.selectors[1].text.should.eql('th');
-			ast.rules[0].selectors.selectors[2].text.should.eql('td');
-			checkRanges(ast);
+			var selectors = ast.getRules()[0].getSelectors();
+
+			selectors.insertSelector(Parser.parseSelector('table'), 0);
+			//console.log(ast.toString());
+
+			selectors.getLength().should.eql(3);
+			selectors[0].getText().should.eql('table');
+			selectors[1].getText().should.eql('th');
+			selectors[2].getText().should.eql('td');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 	});
 
@@ -50,70 +73,124 @@ describe('AST', function()
 		it('should remove all selectors', function()
 		{
 			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}';
-			var ast = CSSParser.parse(css);
-			ast.rules[0].selectors.selectors = '';
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules[0].selectors.children.length.should.eql(0);
-			checkRanges(ast);
+			var selectors = ast.getRules()[0].getSelectors();
+			selectors.deleteAllSelectors();
+
+			selectors.getLength().should.eql(0);
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 
 		it('should replace current selectors', function()
 		{
 			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}';
-			var ast = CSSParser.parse(css);
-			ast.rules[0].selectors.selectorText = 'html, body, code.highlight, li+a:hover';
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules[0].selectors.children.length.should.eql(4);
-			ast.rules[0].selectors.selectors[0].text.should.eql('html');
-			ast.rules[0].selectors.selectors[1].text.should.eql('body');
-			ast.rules[0].selectors.selectors[2].text.should.eql('code.highlight');
-			ast.rules[0].selectors.selectors[3].text.should.eql('li+a:hover');
-			checkRanges(ast);
+			var selectors = ast.getRules()[0].getSelectors();
+			selectors.setSelectors([
+				Parser.parseSelector('html'),
+				Parser.parseSelector('body'),
+				Parser.parseSelector('code.highlight'),
+				Parser.parseSelector('li+a:hover')
+			]);
+			//console.log(ast.toString());
+
+			selectors.getLength().should.eql(4);
+			selectors[0].getText().should.eql('html');
+			selectors[1].getText().should.eql('body');
+			selectors[2].getText().should.eql('code.highlight');
+			selectors[3].getText().should.eql('li+a:hover');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
+		});
+
+		it('should replace current selectors from selector list', function()
+		{
+			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}';
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
+
+			var selectors = ast.getRules()[0].getSelectors();
+			selectors.setSelectors(Parser.parseSelectors('html, body,\tcode.highlight,\nli+a:hover '));
+			//console.log(ast.toString());
+
+			selectors.getLength().should.eql(4);
+			selectors[0].getText().should.eql('html');
+			selectors[1].getText().should.eql('body');
+			selectors[2].getText().should.eql('code.highlight');
+			selectors[3].getText().should.eql('li+a:hover');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 	});
 
-	describe('insert property', function()
+	describe('insert declaration', function()
 	{
 		it('should be appended', function()
 		{
 			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}';
-			var ast = CSSParser.parse(css);
-			ast.rules[0].style.insertPropertyWithName('background-color', 'hotpink');
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules[0].style.children.length.should.eql(3);
-			ast.rules[0].style.declarations[0].name.should.eql('color');
-			ast.rules[0].style.declarations[1].name.should.eql('padding');
-			ast.rules[0].style.declarations[2].name.should.eql('background-color');
-			ast.rules[0].style.declarations[2].value.should.eql('hotpink');
-			checkRanges(ast);
+			var declarations = ast.getRules()[0].getDeclarations();
+
+			declarations.insertDeclaration(Parser.parseDeclaration('background-color: hotpink;'));
+
+			declarations.getLength().should.eql(3);
+			declarations[0].getNameAsString().should.eql('color');
+			declarations[1].getNameAsString().should.eql('padding');
+			declarations[2].getNameAsString().should.eql('background-color');
+			declarations[2].getValueAsString().should.eql('hotpink');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 
 		it('should be inserted in the middle', function()
 		{
 			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}';
-			var ast = CSSParser.parse(css);
-			ast.rules[0].style.insertPropertyWithName('background-color', 'hotpink', 1);
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules[0].style.children.length.should.eql(3);
-			ast.rules[0].style.declarations[0].name.should.eql('color');
-			ast.rules[0].style.declarations[2].name.should.eql('padding');
-			ast.rules[0].style.declarations[1].name.should.eql('background-color');
-			ast.rules[0].style.declarations[1].value.should.eql('hotpink');
-			checkRanges(ast);
+			var declarations = ast.getRules()[0].getDeclarations();
+
+			declarations.insertDeclaration(Parser.parseDeclaration('background-color: hotpink;'), 1);
+
+			declarations.getLength().should.eql(3);
+			declarations[0].getNameAsString().should.eql('color');
+			declarations[2].getNameAsString().should.eql('padding');
+			declarations[1].getNameAsString().should.eql('background-color');
+			declarations[1].getValueAsString().should.eql('hotpink');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 
 		it('should be prepended', function()
 		{
 			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}';
-			var ast = CSSParser.parse(css);
-			ast.rules[0].style.insertPropertyWithName('background-color', 'hotpink', 0);
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules[0].style.children.length.should.eql(3);
-			ast.rules[0].style.declarations[1].name.should.eql('color');
-			ast.rules[0].style.declarations[2].name.should.eql('padding');
-			ast.rules[0].style.declarations[0].name.should.eql('background-color');
-			ast.rules[0].style.declarations[0].value.should.eql('hotpink');
-			checkRanges(ast);
+			var declarations = ast.getRules()[0].getDeclarations();
+
+			declarations.insertDeclaration(Parser.parseDeclaration('background-color: hotpink;'), 0);
+
+			declarations.getLength().should.eql(3);
+			declarations[1].getNameAsString().should.eql('color');
+			declarations[2].getNameAsString().should.eql('padding');
+			declarations[0].getNameAsString().should.eql('background-color');
+			declarations[0].getValueAsString().should.eql('hotpink');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 	});
 
@@ -122,45 +199,63 @@ describe('AST', function()
 		it('should be appended', function()
 		{
 			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}';
-			var ast = CSSParser.parse(css);
-			ast.insertRule('code, pre>p::after');
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules.length.should.eql(2);
-			ast.rules[0].selectors.selectors[0].text.should.eql('th');
-			ast.rules[1].selectors.selectors.length.should.eql(2);
-			ast.rules[1].selectors.selectors[0].text.should.eql('code');
-			ast.rules[1].selectors.selectors[1].text.should.eql('pre>p::after');
-			checkRanges(ast);
+			ast.insertRule(Parser.parseRule('code, pre>p::after {}'));
+
+			var rules = ast.getRules();
+			rules.getLength().should.eql(2);
+
+			rules[0].getSelectors()[0].getText().should.eql('th');
+			rules[1].getSelectors().getLength().should.eql(2);
+			rules[1].getSelectors()[0].getText().should.eql('code');
+			rules[1].getSelectors()[1].getText().should.eql('pre>p::after');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 
 		it('should be inserted in the middle', function()
 		{
 			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}\narticle.story { font-size: 2em; }';
-			var ast = CSSParser.parse(css);
-			ast.insertRule('code, pre>p::after', 1);
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules.length.should.eql(3);
-			ast.rules[0].selectors.selectors[0].text.should.eql('th');
-			ast.rules[1].selectors.selectors.length.should.eql(2);
-			ast.rules[1].selectors.selectors[0].text.should.eql('code');
-			ast.rules[1].selectors.selectors[1].text.should.eql('pre>p::after');
-			ast.rules[2].selectors.selectors[0].text.should.eql('article.story');
-			checkRanges(ast);
+			ast.insertRule(Parser.parseRule('code, pre>p::after {}'), 1);
+
+			var rules = ast.getRules();
+			rules.getLength().should.eql(3);
+
+			rules[0].getSelectors()[0].getText().should.eql('th');
+			rules[1].getSelectors().getLength().should.eql(2);
+			rules[1].getSelectors()[0].getText().should.eql('code');
+			rules[1].getSelectors()[1].getText().should.eql('pre>p::after');
+			rules[2].getSelectors()[0].getText().should.eql('article.story');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 
 		it('should be prepended', function()
 		{
 			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}\narticle.story { font-size: 2em; }';
-			var ast = CSSParser.parse(css);
-			ast.insertRule('code, pre>p::after', 0);
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules.length.should.eql(3);
-			ast.rules[0].selectors.selectors.length.should.eql(2);
-			ast.rules[0].selectors.selectors[0].text.should.eql('code');
-			ast.rules[0].selectors.selectors[1].text.should.eql('pre>p::after');
-			ast.rules[1].selectors.selectors[0].text.should.eql('th');
-			ast.rules[2].selectors.selectors[0].text.should.eql('article.story');
-			checkRanges(ast);
+			ast.insertRule(Parser.parseRule('code, pre>p::after {}'), 0);
+
+			var rules = ast.getRules();
+			rules.getLength().should.eql(3);
+
+			rules[0].getSelectors().getLength().should.eql(2);
+			rules[0].getSelectors()[0].getText().should.eql('code');
+			rules[0].getSelectors()[1].getText().should.eql('pre>p::after');
+			rules[1].getSelectors()[0].getText().should.eql('th');
+			rules[2].getSelectors()[0].getText().should.eql('article.story');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 	});
 
@@ -169,45 +264,61 @@ describe('AST', function()
 		it('1', function()
 		{
 			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}\narticle.story { font-size: 2em; }';
-			var ast = CSSParser.parse(css);
-			ast.rules[0].selectors.selectors[0].text = 'table';
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules[0].selectors.selectors.length.should.eql(2);
-			ast.rules[0].selectors.selectors[0].text.should.eql('table');
-			checkRanges(ast);
+			ast.getRules()[0].getSelectors()[0].setText('table');
+
+			ast.getRules()[0].getSelectors().getLength().should.eql(2);
+			ast.getRules()[0].getSelectors()[0].getText().should.eql('table');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 
 		it('2', function()
 		{
 			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}\narticle.story { font-size: 2em; }';
-			var ast = CSSParser.parse(css);
-			ast.rules[0].selectors.selectors[0].text = 'table\n';
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules[0].selectors.selectors.length.should.eql(2);
-			ast.rules[0].selectors.selectors[0].text.should.eql('table');
-			checkRanges(ast);
+			ast.getRules()[0].getSelectors()[0].setText('table\n');
+
+			ast.getRules()[0].getSelectors().getLength().should.eql(2);
+			ast.getRules()[0].getSelectors()[0].getText().should.eql('table');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 
 		it('3', function()
 		{
 			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}\narticle.story { font-size: 2em; }';
-			var ast = CSSParser.parse(css);
-			ast.rules[0].selectors.selectors[0].text = '\ntable\n';
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules[0].selectors.selectors.length.should.eql(2);
-			ast.rules[0].selectors.selectors[0].text.should.eql('table');
-			checkRanges(ast);
+			ast.getRules()[0].getSelectors()[0].setText('\ntable\n');
+
+			ast.getRules()[0].getSelectors().getLength().should.eql(2);
+			ast.getRules()[0].getSelectors()[0].getText().should.eql('table');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 
 		it('4', function()
 		{
 			var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}\narticle.story { font-size: 2em; }';
-			var ast = CSSParser.parse(css);
-			ast.rules[0].selectors.selectors[0].text = 'a';
+			var ast = Parser.parse(css);
+			Utils.checkRangeContents(ast);
 
-			ast.rules[0].selectors.selectors.length.should.eql(2);
-			ast.rules[0].selectors.selectors[0].text.should.eql('a');
-			checkRanges(ast);
+			ast.getRules()[0].getSelectors()[0].setText('a');
+
+			ast.getRules()[0].getSelectors().getLength().should.eql(2);
+			ast.getRules()[0].getSelectors()[0].getText().should.eql('a');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
 		});
 	});
 
@@ -218,11 +329,15 @@ describe('AST', function()
 			it('1', function()
 			{
 				var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}\narticle.story { font-size: 2em; }';
-				var ast = CSSParser.parse(css);
-				ast.rules[0].style.declarations[0].name = 'background-color';
+				var ast = Parser.parse(css);
+				Utils.checkRangeContents(ast);
 
-				ast.rules[0].style.declarations[0].name.should.eql('background-color');
-				checkRanges(ast);
+				ast.getRules()[0].getDeclarations()[0].setName('background-color');
+
+				ast.getRules()[0].getDeclarations()[0].getNameAsString().should.eql('background-color');
+
+				Utils.checkRanges(ast);
+				Utils.checkRangeContents(ast);
 			});
 		});
 
@@ -231,11 +346,15 @@ describe('AST', function()
 			it('1', function()
 			{
 				var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}\narticle.story { font-size: 2em; }';
-				var ast = CSSParser.parse(css);
-				ast.rules[0].style.declarations[0].value = 'lime';
+				var ast = Parser.parse(css);
+				Utils.checkRangeContents(ast);
 
-				ast.rules[0].style.declarations[0].value.should.eql('lime');
-				checkRanges(ast);
+				ast.getRules()[0].getDeclarations()[0].setValue('lime');
+
+				ast.getRules()[0].getDeclarations()[0].getValueAsString().should.eql('lime');
+
+				Utils.checkRanges(ast);
+				Utils.checkRangeContents(ast);
 			});
 		});
 
@@ -244,17 +363,21 @@ describe('AST', function()
 			it('1', function()
 			{
 				var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}\narticle.story { font-size: 2em; }';
-				var ast = CSSParser.parse(css);
-				ast.rules[0].style.declarations[0].disabled = true;
+				var ast = Parser.parse(css);
+				Utils.checkRangeContents(ast);
 
-				ast.rules[0].style.declarations[0].disabled.should.eql(true);
-				ast.rules[0].style.declarations[0].name.should.eql('color');
-				ast.rules[0].style.declarations[0].value.should.eql('orange');
+				ast.getRules()[0].getDeclarations()[0].setDisabled(true);
 
-				var s = ast.rules[0].style.declarations[0].beautify();
+				ast.getRules()[0].getDeclarations()[0].getDisabled().should.eql(true);
+				ast.getRules()[0].getDeclarations()[0].getNameAsString().should.eql('color');
+				ast.getRules()[0].getDeclarations()[0].getValueAsString().should.eql('orange');
+
+				var s = ast.getRules()[0].getDeclarations()[0].toString();
 				s.should.containEql('/*');
 				s.should.containEql('*/');
-				checkRanges(ast);
+
+				Utils.checkRanges(ast);
+				Utils.checkRangeContents(ast);
 			});
 		});
 
@@ -263,65 +386,77 @@ describe('AST', function()
 			it('1', function()
 			{
 				var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}\narticle.story { font-size: 2em; }';
-				var ast = CSSParser.parse(css);
-				ast.rules[0].style.declarations[0].text = 'background-color: yellow;';
+				var ast = Parser.parse(css);
+				Utils.checkRangeContents(ast);
 
-				ast.rules[0].style.declarations[0].name.should.eql('background-color');
-				ast.rules[0].style.declarations[0].value.should.eql('yellow');
-				ast.rules[0].style.declarations[0].disabled.should.eql(false);
-				ast.rules[0].style.declarations[0].important.should.eql(false);
+				ast.getRules()[0].getDeclarations()[0].setText('background-color: yellow;');
 
-				ast.rules[0].style.declarations[1].name.should.eql('padding');
+				ast.getRules()[0].getDeclarations()[0].getNameAsString().should.eql('background-color');
+				ast.getRules()[0].getDeclarations()[0].getValueAsString().should.eql('yellow');
+				ast.getRules()[0].getDeclarations()[0].getDisabled().should.eql(false);
+				ast.getRules()[0].getDeclarations()[0].getImportant().should.eql(false);
 
-				checkRanges(ast);
+				ast.getRules()[0].getDeclarations()[1].getNameAsString().should.eql('padding');
+
+				Utils.checkRanges(ast);
+				Utils.checkRangeContents(ast);
 			});
 
 			it('2', function()
 			{
 				var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}\narticle.story { font-size: 2em; }';
-				var ast = CSSParser.parse(css);
-				ast.rules[0].style.declarations[0].text = '/* background-color: yellow; */';
+				var ast = Parser.parse(css);
+				Utils.checkRangeContents(ast);
 
-				ast.rules[0].style.declarations[0].name.should.eql('background-color');
-				ast.rules[0].style.declarations[0].value.should.eql('yellow');
-				ast.rules[0].style.declarations[0].disabled.should.eql(true);
-				ast.rules[0].style.declarations[0].important.should.eql(false);
+				ast.getRules()[0].getDeclarations()[0].setText('/* background-color: yellow; */');
 
-				ast.rules[0].style.declarations[1].name.should.eql('padding');
+				ast.getRules()[0].getDeclarations()[0].getNameAsString().should.eql('background-color');
+				ast.getRules()[0].getDeclarations()[0].getValueAsString().should.eql('yellow');
+				ast.getRules()[0].getDeclarations()[0].getDisabled().should.eql(true);
+				ast.getRules()[0].getDeclarations()[0].getImportant().should.eql(false);
 
-				checkRanges(ast);
+				ast.getRules()[0].getDeclarations()[1].getNameAsString().should.eql('padding');
+
+				Utils.checkRanges(ast);
+				Utils.checkRangeContents(ast);
 			});
 
 			it('3', function()
 			{
 				var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}\narticle.story { font-size: 2em; }';
-				var ast = CSSParser.parse(css);
-				ast.rules[0].style.declarations[0].text = '/* background-color: yellow !important ; */';
+				var ast = Parser.parse(css);
+				Utils.checkRangeContents(ast);
 
-				ast.rules[0].style.declarations[0].name.should.eql('background-color');
-				ast.rules[0].style.declarations[0].value.should.eql('yellow !important');
-				ast.rules[0].style.declarations[0].disabled.should.eql(true);
-				ast.rules[0].style.declarations[0].important.should.eql(true);
+				ast.getRules()[0].getDeclarations()[0].setText('/* background-color: yellow !important ; */');
 
-				ast.rules[0].style.declarations[1].name.should.eql('padding');
+				ast.getRules()[0].getDeclarations()[0].getNameAsString().should.eql('background-color');
+				ast.getRules()[0].getDeclarations()[0].getValueAsString().should.eql('yellow !important');
+				ast.getRules()[0].getDeclarations()[0].getDisabled().should.eql(true);
+				ast.getRules()[0].getDeclarations()[0].getImportant().should.eql(true);
 
-				checkRanges(ast);
+				ast.getRules()[0].getDeclarations()[1].getNameAsString().should.eql('padding');
+
+				Utils.checkRanges(ast);
+				Utils.checkRangeContents(ast);
 			});
 
 			it('4', function()
 			{
 				var css = 'th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}\narticle.story { font-size: 2em; }';
-				var ast = CSSParser.parse(css);
-				ast.rules[0].style.declarations[1].text = 'background-color: yellow;';
+				var ast = Parser.parse(css);
+				Utils.checkRangeContents(ast);
 
-				ast.rules[0].style.declarations[1].name.should.eql('background-color');
-				ast.rules[0].style.declarations[1].value.should.eql('yellow');
-				ast.rules[0].style.declarations[1].disabled.should.eql(false);
-				ast.rules[0].style.declarations[1].important.should.eql(false);
+				ast.getRules()[0].getDeclarations()[1].setText('background-color: yellow;');
 
-				ast.rules[0].style.declarations[0].name.should.eql('color');
+				ast.getRules()[0].getDeclarations()[1].getNameAsString().should.eql('background-color');
+				ast.getRules()[0].getDeclarations()[1].getValueAsString().should.eql('yellow');
+				ast.getRules()[0].getDeclarations()[1].getDisabled().should.eql(false);
+				ast.getRules()[0].getDeclarations()[1].getImportant().should.eql(false);
 
-				checkRanges(ast);
+				ast.getRules()[0].getDeclarations()[0].getNameAsString().should.eql('color');
+
+				Utils.checkRanges(ast);
+				Utils.checkRangeContents(ast);
 			});
 		});
 	});
