@@ -679,8 +679,10 @@ export class Parser
 
 		checkForCombinator = function()
 		{
-			var whitespace: Tokenizer.Token,
+			var trivia: Tokenizer.Token[],
+				whitespace: Tokenizer.Token,
 				len: number,
+				i: number,
 				endLine: number,
 				endColumn: number,
 				newEndLine: number,
@@ -689,14 +691,21 @@ export class Parser
 
 			if (!previousIsCombinator && previousToken && previousToken.hasTrailingWhitespace())
 			{
-				whitespace = previousToken.trailingTrivia[0];
-				whitespace.trailingTrivia = previousToken.trailingTrivia.slice(1);
+				trivia = previousToken.trailingTrivia;
+				len = trivia.length;
+				for (i = 0; i < len; i++)
+				{
+					if (trivia[i].token === Tokenizer.EToken.WHITESPACE)
+						break;
+				}
+				whitespace = trivia[i];
+				whitespace.leadingTrivia = trivia.slice(0, i);
+				whitespace.trailingTrivia = trivia.slice(i + 1);
 
 				values.push(new AST.SelectorCombinator(whitespace));
 
-				len = previousToken.trailingTrivia.length;
-				endLine = previousToken.trailingTrivia[len - 1].range.endLine;
-				endColumn = previousToken.trailingTrivia[len - 1].range.endColumn;
+				endLine = trivia[len - 1].range.endLine;
+				endColumn = trivia[len - 1].range.endColumn;
 				newEndLine = whitespace.range.startLine;
 				newEndColumn = whitespace.range.startColumn;
 
