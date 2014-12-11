@@ -359,9 +359,14 @@ export class Parser
 			}
 			else if (spec.type === EAtRule.SIMPLE)
 			{
-				this.expect(Tokenizer.EToken.SEMICOLON);
-				blockOrSemicolon = this._currentToken;
-				this.nextToken();
+				if (this._currentToken.token === Tokenizer.EToken.SEMICOLON)
+				{
+					this.expect(Tokenizer.EToken.SEMICOLON);
+					blockOrSemicolon = this._currentToken;
+					this.nextToken();
+				}
+				else
+					blockOrSemicolon = undefined;
 			}
 
 			return (atKeyword || prelude || blockOrSemicolon) ? new spec.astClass(atKeyword, prelude, blockOrSemicolon) : null;
@@ -581,7 +586,9 @@ export class Parser
 			lastTrailingTrivia.push(t);
 		}
 
-		updateRange(lastToken);
+		if (lastToken !== token)
+			updateRange(lastToken);
+
 		return declarations;
 	}
 
@@ -601,6 +608,11 @@ export class Parser
 		try
 		{
 			declaration = new Parser(token.src, { tokenizeComments: true }).parseDeclaration();
+
+			// ignore if no closing comment was found
+			if (!declaration.getRComment())
+				return null;
+
 			if (declaration)
 				Utilities.offsetRange(declaration, token.range.startLine, token.range.startColumn);
 		}

@@ -12,6 +12,16 @@ import Utilities = require('./utilities');
 // TYPE DECLARATIONS
 // ==================================================================
 
+export interface IComponentValue extends T.INode
+{
+	getValue: () => string;
+}
+
+export interface IRulesContainer extends T.INode
+{
+	getRules: () => RuleList;
+}
+
 export interface IASTWalker
 {
 	(ast: T.INode, descend: () => any[], walker?: IASTWalker): any;
@@ -332,7 +342,7 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 		if (this._tokens === null)
 		{
 			this._tokens = [];
-			len = this._nodes.length;
+			len = (this._nodes && this._nodes.length) || 0;
 
 			for (i = 0; i < len; i++)
 			{
@@ -354,7 +364,7 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 	 */
 	getLength(): number
 	{
-		return this._nodes.length;
+		return this._nodes ? this._nodes.length : 0;
 	}
 
 	getStartPosition(): IPosition
@@ -376,7 +386,7 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 			firstRange: T.ISourceRange,
 			lastRange: T.ISourceRange;
 
-		if (this._nodes.length > 0)
+		if (this._nodes && this._nodes.length > 0)
 		{
 			range = this._nodes[0].range;
 			offsetLine = range.startLine;
@@ -388,6 +398,9 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 			offsetLine = pos.line;
 			offsetColumn = pos.column;
 		}
+
+		if (!this._nodes)
+			this._nodes = [];
 
 		// delete all the current nodes
 		this.deleteAllNodes();
@@ -437,12 +450,15 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 	insertNode(node: U, pos?: number): void
 	{
 		var nodes = this._nodes,
-			len = nodes.length,
+			len = (nodes && nodes.length) || 0,
 			i: number,
 			range: T.ISourceRange,
 			position: IPosition,
 			offsetLine: number,
 			offsetColumn: number;
+
+		if (!this._nodes)
+			this._nodes = [];
 
 		// set the parent of the node to insert
 		if (node instanceof ASTNode)
@@ -504,7 +520,7 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 	deleteNode(pos: number): void
 	{
 		var nodes = this._nodes,
-			len = nodes.length,
+			len = (nodes && nodes.length) || 0,
 			i: number,
 			node: T.INode;
 
@@ -534,7 +550,7 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 	deleteAllNodes(): void
 	{
 		var nodes = this._nodes,
-			len = nodes.length,
+			len = (nodes && nodes.length) || 0,
 			i: number,
 			firstRange: T.ISourceRange,
 			lastRange: T.ISourceRange,
@@ -571,9 +587,8 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 	forEach(it: (elt: U) => void)
 	{
 		var i: number,
-			len: number;
+			len = (this._nodes && this._nodes.length) || 0;
 
-		len = this._nodes.length;
 		for (i = 0; i < len; i++)
 			it(this._nodes[i]);
 	}
@@ -627,12 +642,6 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 
 		return result;
 	}
-}
-
-
-export interface IComponentValue extends T.INode
-{
-	getValue(): string;
 }
 
 
@@ -824,9 +833,9 @@ export class FunctionComponentValue extends BlockComponentValue
 		return this.getStartToken();
 	}
 
-	getArgs(): ComponentValue[]
+	getArgs(): FunctionArgumentValue[]
 	{
-		return this._nodes;
+		return <FunctionArgumentValue[]> <any> this._nodes;
 	}
 }
 
@@ -1197,7 +1206,7 @@ export class RuleList extends ASTNodeList<AbstractRule>
 }
 
 
-export class StyleSheet extends ASTNode
+export class StyleSheet extends ASTNode implements IRulesContainer
 {
 	private _rules: RuleList;
 
@@ -2073,10 +2082,10 @@ export class PseudoClass extends ASTNode implements IComponentValue
 {
 	private _colon1: Tokenizer.Token;
 	private _colon2: Tokenizer.Token;
-	private _value: IComponentValue;
+	private _pseudoClassName: IComponentValue;
 
 
-	constructor(colon1: Tokenizer.Token, colon2: Tokenizer.Token, value: IComponentValue);
+	constructor(colon1: Tokenizer.Token, colon2: Tokenizer.Token, pseudoClassName: IComponentValue);
 	constructor(pseudoClass: string);
 
 	constructor(...args: any[])
@@ -2098,6 +2107,11 @@ export class PseudoClass extends ASTNode implements IComponentValue
 		}
 	}
 
+	getPseudoClassName(): IComponentValue
+	{
+		return this._pseudoClassName;
+	}
+
 	getChildren(): T.INode[]
 	{
 		if (this._children === null)
@@ -2108,8 +2122,8 @@ export class PseudoClass extends ASTNode implements IComponentValue
 				this._children.push(this._colon1);
 			if (this._colon2)
 				this._children.push(this._colon2);
-			if (this._value)
-				this._children.push(this._value);
+			if (this._pseudoClassName)
+				this._children.push(this._pseudoClassName);
 		}
 
 		return this._children;
@@ -2125,8 +2139,8 @@ export class PseudoClass extends ASTNode implements IComponentValue
 				this._tokens.push(this._colon1);
 			if (this._colon2)
 				this._tokens.push(this._colon2);
-			if (this._value)
-				this._tokens = this._tokens.concat(this._value.getTokens());
+			if (this._pseudoClassName)
+				this._tokens = this._tokens.concat(this._pseudoClassName.getTokens());
 		}
 
 		return this._tokens;
@@ -2146,7 +2160,7 @@ export class PseudoClass extends ASTNode implements IComponentValue
 				result.push(r);
 			if (that._colon2 && (r = that._colon2.walk(walker)) !== undefined)
 				result.push(r);
-			if (that._value && (r = that._value.walk(walker)) !== undefined)
+			if (that._pseudoClassName && (r = that._pseudoClassName.walk(walker)) !== undefined)
 				result.push(r);
 
 			return result;
@@ -2164,8 +2178,8 @@ export class PseudoClass extends ASTNode implements IComponentValue
 			s += this._colon1.toString();
 		if (this._colon2)
 			s += this._colon2.toString();
-		if (this._value)
-			s += this._value.toString();
+		if (this._pseudoClassName)
+			s += this._pseudoClassName.toString();
 
 		return s;
 	}
@@ -2178,8 +2192,8 @@ export class PseudoClass extends ASTNode implements IComponentValue
 			s += this._colon1.src;
 		if (this._colon2)
 			s += this._colon2.src;
-		if (this._value)
-			s += this._value.getValue();
+		if (this._pseudoClassName)
+			s += this._pseudoClassName.getValue();
 
 		return s;
 	}
@@ -2190,14 +2204,14 @@ export class PseudoClass extends ASTNode implements IComponentValue
 
 		this._colon1 = colon1;
 		this._colon2 = colon2;
-		this._value = value;
+		this._pseudoClassName = value;
 
 		if (this._colon1)
 			this._colon1.parent = this;
 		if (this._colon2)
 			this._colon2.parent = this;
-		if (this._value)
-			(<ASTNode> <any> this._value)._parent = this;
+		if (this._pseudoClassName)
+			(<ASTNode> <any> this._pseudoClassName)._parent = this;
 
 		t = colon1 || colon2 || value;
 		if (t)
@@ -2466,7 +2480,7 @@ export class Declaration extends ASTNode
 	getNameAsString(): string
 	{
 		if (this._nameText === null)
-			this._nameText = toStringNormalize(this._name.getTokens());
+			this._nameText = this._name ? toStringNormalize(this._name.getTokens()) : '';
 		return this._nameText;
 	}
 
@@ -2482,7 +2496,7 @@ export class Declaration extends ASTNode
 
 	getValueAsString(excludeImportant?: boolean): string
 	{
-		return this._value.getText(excludeImportant);
+		return this._value ? this._value.getText(excludeImportant) : '';
 	}
 
 	setValue(newValue: string): void
@@ -2494,6 +2508,7 @@ export class Declaration extends ASTNode
 		if (this.getValueAsString().toLowerCase() === newValueLc)
 			return;
 
+		// TODO: handle case when there are errors (name, value not defined)
 		root = this.getRoot();
 		oldRange = this._value.range;
 		Utilities.zeroRange(root, this._value);
@@ -2773,7 +2788,7 @@ export class DeclarationValue extends ComponentValueList
 				{
 					node = this._nodes[i];
 					if (!(node instanceof ImportantComponentValue))
-						tokens = tokens.concat(node.getToken());
+						tokens = tokens.concat(node.getTokens());
 				}
 
 				this._textWithoutImportant = toStringNormalize(tokens);
@@ -2840,7 +2855,7 @@ export class DeclarationValue extends ComponentValueList
 }
 
 
-export class AtRule extends AbstractRule
+export class AtRule extends AbstractRule implements IRulesContainer
 {
 	private _atKeyword: Tokenizer.Token;
 	private _prelude: ComponentValueList;
@@ -3133,8 +3148,13 @@ export class AtDocument extends AtRule
 
 		var getArg = function(fnx: T.INode)
 		{
-			var args = (<FunctionComponentValue> fnx).getArgs();
-			return args.length > 0 ? args[0].getValue() : '';
+			var args = (<FunctionComponentValue> fnx).getArgs(),
+				arg: FunctionArgumentValue = args.length > 0 ? args[0] : null;
+
+			if (!arg)
+				return '';
+
+			return arg.getLength() === 1 ? arg[0].getValue() : arg.getValue();
 		};
 
 		var prelude = this.getPrelude(),

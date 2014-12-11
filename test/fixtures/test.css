@@ -1,3 +1,11 @@
+element.style {undefined}
+
+.animated {
+    width: 200px;
+    /*-webkit-animation: idleimage 3s ease infinite;
+    -moz-animation: idleimage 3s ease infinite;*/
+}
+
 .slice {
     background: transparent url("http://files.newsnetz.ch/css/images/bg_SB_repXY.png") repeat scroll left top;
     margin-bottom: 3px;

@@ -126,7 +126,7 @@ describe('CSS-Parser', function()
 				rule.getUrl().should.eql('http://www.w3.org/');
 				rule.getUrlPrefix().should.eql('http://www.w3.org/Style/');
 				rule.getDomain().should.eql('mozilla.org');
-				rule.getRegexp().should.eql('"https:.*"');
+				rule.getRegexp().should.eql('https:.*');
 			});
 
 			it('2', function()
@@ -142,7 +142,7 @@ describe('CSS-Parser', function()
 				rule.getUrl().should.eql('http://www.w3.org/');
 				rule.getUrlPrefix().should.eql('http://www.w3.org/Style/');
 				rule.getDomain().should.eql('mozilla.org');
-				rule.getRegexp().should.eql('"https:.*"');
+				rule.getRegexp().should.eql('https:.*');
 			});
 		});
 
