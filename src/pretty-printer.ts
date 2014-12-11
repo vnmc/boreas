@@ -89,6 +89,9 @@ export function beautify(node: T.INode)
         else if (ast instanceof AST.AbstractRule)
             ret = join(descend()) + newline();
 
+        else if (ast instanceof AST.DeclarationValue)
+            ret = join(descend(), ' ');
+
         // default
         else
             ret = join(descend());
@@ -99,9 +102,9 @@ export function beautify(node: T.INode)
     }));
 }
 
-function join(arr: any): string
+function join(arr: any, sep: string = ''): string
 {
-    return Array.isArray(arr) ? arr.join('') : (arr || '');
+    return Array.isArray(arr) ? arr.join(sep) : (arr || '');
 }
 
 function leadingSpace(s: string): string
@@ -114,7 +117,7 @@ function trailingSpace(s: string): string
     return (s[s.length - 1] === ' ') ? s : s + ' ';
 }
 
-function beautifyTokenComments(triviaToken: Tokenizer.Token[])
+function beautifyTokenComments(triviaToken: Tokenizer.Token[], addSpaces: boolean)
 {
     var s = '',
         len: number,
@@ -139,7 +142,8 @@ function beautifyTokenComments(triviaToken: Tokenizer.Token[])
         }
         else
         {
-            s += ' ';
+            //if (addSpaces)
+            //    s += ' ';
             prevWasComment = false;
         }
     }
@@ -149,12 +153,17 @@ function beautifyTokenComments(triviaToken: Tokenizer.Token[])
 
 function beautifyToken(token: Tokenizer.Token, prev: string): string
 {
-    var ret: string;
+    var ret: string,
+        inDeclarationValue = AST.hasParent(token, AST.DeclarationValue);
 
     if (!token)
         return '';
 
-    ret = beautifyTokenComments(token.leadingTrivia) + token.src + beautifyTokenComments(token.trailingTrivia);
+    ret = //Utilities.trim(
+        beautifyTokenComments(token.leadingTrivia, inDeclarationValue) +
+        token.src +
+        beautifyTokenComments(token.trailingTrivia, inDeclarationValue);
+    //);
 
     switch (token.token)
     {

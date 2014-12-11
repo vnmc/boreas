@@ -63,7 +63,7 @@ export function hasParent(node: T.INode, ctor: Function): boolean
 {
 	var parent: T.INode = node;
 
-	for ( ; ; )
+	for ( ; parent; )
 	{
 		parent = parent.getParent();
 		if (!parent)
@@ -1721,6 +1721,15 @@ export class SelectorCombinator extends ComponentValue
 			return ' ';
 		return t.src;
 	}
+
+	walk(walker: IASTWalker): any
+	{
+		var that = this;
+		return this._walk(walker, function()
+		{
+			return that.getToken().walk(walker);
+		});
+	}
 }
 
 
@@ -1866,16 +1875,55 @@ export class SimpleSelector<U extends T.INode> extends ASTNode implements ICompo
 
 export class TypeSelector extends SimpleSelector<Tokenizer.Token>
 {
+	constructor(type: Tokenizer.Token, namespace?: Tokenizer.Token, pipe?: Tokenizer.Token);
+	constructor(type: string, namespace?: string);
+
+	constructor(...args: any[])
+	{
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				new Tokenizer.Token(Tokenizer.EToken.IDENT, new SourceRange(), <string> args[0]),
+			isASTConstructor ?
+				<Tokenizer.Token> args[1] :
+				(args[1] ? new Tokenizer.Token(Tokenizer.EToken.IDENT, new SourceRange(), <string> args[1]) : undefined),
+			isASTConstructor ?
+				<Tokenizer.Token> args[2] :
+				(args[1] !== '' ? new Tokenizer.Token(Tokenizer.EToken.DELIM, new SourceRange(), '|') : undefined)
+		);
+	}
+
 	getType(): Tokenizer.Token
 	{
 		return this._value;
 	}
-
 }
 
 
 export class UniversalSelector extends SimpleSelector<Tokenizer.Token>
 {
+	constructor(asterisk: Tokenizer.Token, namespace?: Tokenizer.Token, pipe?: Tokenizer.Token);
+	constructor(namespace?: string);
+
+	constructor(...args: any[])
+	{
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				new Tokenizer.Token(Tokenizer.EToken.DELIM, new SourceRange(), '*'),
+			isASTConstructor ?
+				<Tokenizer.Token> args[1] :
+				(args[0] ? new Tokenizer.Token(Tokenizer.EToken.IDENT, new SourceRange(), <string> args[0]) : undefined),
+			isASTConstructor ?
+				<Tokenizer.Token> args[2] :
+				(args[0] !== '' ? new Tokenizer.Token(Tokenizer.EToken.DELIM, new SourceRange(), '|') : undefined)
+		);
+	}
+
 	getType(): Tokenizer.Token
 	{
 		return this._value;
@@ -1894,22 +1942,41 @@ export class AttributeSelector extends SimpleSelector<BlockComponentValue>
 
 export class ClassSelector extends SimpleSelector<Tokenizer.Token>
 {
-	private _ident: Tokenizer.Token;
+	private _className: Tokenizer.Token;
 
-	constructor(dot: Tokenizer.Token, ident: Tokenizer.Token, namespace?: Tokenizer.Token, pipe?: Tokenizer.Token)
+
+	constructor(dot: Tokenizer.Token, className: Tokenizer.Token, namespace?: Tokenizer.Token, pipe?: Tokenizer.Token);
+	constructor(className: string, namespace?: string);
+
+	constructor(...args: any[])
 	{
-		super(dot, namespace, pipe);
+		var isASTConstructor = args[0] instanceof Tokenizer.Token,
+			className: Tokenizer.Token = isASTConstructor ?
+				<Tokenizer.Token> args[1] :
+				new Tokenizer.Token(Tokenizer.EToken.IDENT, new SourceRange(), <string> args[0]);
 
-		this._ident = ident;
-		this._ident.parent = this;
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				new Tokenizer.Token(Tokenizer.EToken.DELIM, new SourceRange(), '.'),
+			isASTConstructor ?
+				<Tokenizer.Token> args[2] :
+				(args[1] ? new Tokenizer.Token(Tokenizer.EToken.IDENT, new SourceRange(), <string> args[1]) : undefined),
+			isASTConstructor ?
+				<Tokenizer.Token> args[3] :
+				(args[1] !== '' ? new Tokenizer.Token(Tokenizer.EToken.DELIM, new SourceRange(), '|') : undefined)
+		);
 
-		this.range.endLine = ident.range.endLine;
-		this.range.endColumn = ident.range.endColumn;
+		this._className = className;
+		this._className.parent = this;
+
+		this.range.endLine = className.range.endLine;
+		this.range.endColumn = className.range.endColumn;
 	}
 
-	getIdentifier(): Tokenizer.Token
+	getClassName(): Tokenizer.Token
 	{
-		return this._ident;
+		return this._className;
 	}
 
 	getDot(): Tokenizer.Token
@@ -1922,7 +1989,7 @@ export class ClassSelector extends SimpleSelector<Tokenizer.Token>
 		if (this._children === null)
 		{
 			this._children = super.getChildren();
-			this._children.push(this._ident);
+			this._children.push(this._className);
 		}
 
 		return this._children;
@@ -1933,11 +2000,10 @@ export class ClassSelector extends SimpleSelector<Tokenizer.Token>
 		if (this._tokens === null)
 		{
 			this._tokens = super.getTokens();
-			this._tokens.push(this._ident);
+			this._tokens.push(this._className);
 		}
 
 		return this._tokens;
-
 	}
 
 	walk(walker: IASTWalker): any
@@ -1955,7 +2021,7 @@ export class ClassSelector extends SimpleSelector<Tokenizer.Token>
 				result.push(r);
 			if (that._value && (r = that._value.walk(walker)) !== undefined)
 				result.push(r);
-			if (that._ident && (r = that._ident.walk(walker)) !== undefined)
+			if (that._className && (r = that._className.walk(walker)) !== undefined)
 				result.push(r);
 
 			return result;
@@ -1967,7 +2033,7 @@ export class ClassSelector extends SimpleSelector<Tokenizer.Token>
 		var s = super.toString();
 
 		if (!this._hasError)
-			s += this._ident.toString();
+			s += this._className.toString();
 
 		return s;
 	}
@@ -1976,6 +2042,26 @@ export class ClassSelector extends SimpleSelector<Tokenizer.Token>
 
 export class IDSelector extends SimpleSelector<Tokenizer.Token>
 {
+	constructor(id: Tokenizer.Token, namespace?: Tokenizer.Token, pipe?: Tokenizer.Token);
+	constructor(id: string, namespace?: string);
+
+	constructor(...args: any[])
+	{
+		var isASTConstructor = args[0] instanceof Tokenizer.Token;
+
+		super(
+			isASTConstructor ?
+				<Tokenizer.Token> args[0] :
+				new Tokenizer.Token(Tokenizer.EToken.HASH, new SourceRange(), '#' + (<string> args[0])),
+			isASTConstructor ?
+				<Tokenizer.Token> args[1] :
+				(args[1] ? new Tokenizer.Token(Tokenizer.EToken.IDENT, new SourceRange(), <string> args[1]) : undefined),
+			isASTConstructor ?
+				<Tokenizer.Token> args[2] :
+				(args[1] !== '' ? new Tokenizer.Token(Tokenizer.EToken.DELIM, new SourceRange(), '|') : undefined)
+		);
+	}
+
 	getID(): Tokenizer.Token
 	{
 		return this._value;
@@ -1989,35 +2075,26 @@ export class PseudoClass extends ASTNode implements IComponentValue
 	private _colon2: Tokenizer.Token;
 	private _value: IComponentValue;
 
-	constructor(colon1: Tokenizer.Token, colon2: Tokenizer.Token, value: IComponentValue)
+
+	constructor(colon1: Tokenizer.Token, colon2: Tokenizer.Token, value: IComponentValue);
+	constructor(pseudoClass: string);
+
+	constructor(...args: any[])
 	{
-		var t: T.INode;
+		var pseudoClass: string;
 
 		super();
 
-		this._colon1 = colon1;
-		this._colon2 = colon2;
-		this._value = value;
-
-		if (this._colon1)
-			this._colon1.parent = this;
-		if (this._colon2)
-			this._colon2.parent = this;
-		if (this._value)
-			(<ASTNode> <any> this._value)._parent = this;
-
-		t = colon1 || colon2 || value;
-		if (t)
+		if (args[0] instanceof Tokenizer.Token)
+			this.set(<Tokenizer.Token> args[0], <Tokenizer.Token> args[1], <IComponentValue> args[2]);
+		else if (typeof args[0] === 'string')
 		{
-			this.range.startLine = t.range.startLine;
-			this.range.startColumn = t.range.startColumn;
-		}
-
-		t = value || colon2 || colon1;
-		if (t)
-		{
-			this.range.endLine = t.range.endLine;
-			this.range.endColumn = t.range.endColumn;
+			pseudoClass = <string> args[0];
+			this.set(
+				new Tokenizer.Token(Tokenizer.EToken.COLON, new SourceRange(), ':'),
+				pseudoClass[1] === ':' ? new Tokenizer.Token(Tokenizer.EToken.COLON, new SourceRange(), ':') : null,
+				new ComponentValue(new Tokenizer.Token(Tokenizer.EToken.IDENT, new SourceRange(), pseudoClass.replace(/^:+/g, '')))
+			);
 		}
 	}
 
@@ -2105,6 +2182,36 @@ export class PseudoClass extends ASTNode implements IComponentValue
 			s += this._value.getValue();
 
 		return s;
+	}
+
+	private set(colon1: Tokenizer.Token, colon2: Tokenizer.Token, value: IComponentValue)
+	{
+		var t: T.INode;
+
+		this._colon1 = colon1;
+		this._colon2 = colon2;
+		this._value = value;
+
+		if (this._colon1)
+			this._colon1.parent = this;
+		if (this._colon2)
+			this._colon2.parent = this;
+		if (this._value)
+			(<ASTNode> <any> this._value)._parent = this;
+
+		t = colon1 || colon2 || value;
+		if (t)
+		{
+			this.range.startLine = t.range.startLine;
+			this.range.startColumn = t.range.startColumn;
+		}
+
+		t = value || colon2 || colon1;
+		if (t)
+		{
+			this.range.endLine = t.range.endLine;
+			this.range.endColumn = t.range.endColumn;
+		}
 	}
 }
 

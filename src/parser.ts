@@ -802,7 +802,7 @@ export class Parser
 					namespace = null;
 					pipe = null;
 
-					previousToken = t;
+					previousToken = ident;
 					t = this.nextToken();
 				}
 				else if (token === Tokenizer.EToken.DELIM && t.src === '*')
