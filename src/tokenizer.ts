@@ -792,7 +792,11 @@ export class Tokenizer
 
 			c = this.nextChar();
 			if (c === '-' && this._src[this._pos + 1] === '>')
-				return this.token(EToken.CDC);
+			{
+				this.nextChar();
+				this.nextChar();
+				return this.token(EToken.CDC, '-->');
+			}
 
 			return this.token(EToken.DELIM);
 		}

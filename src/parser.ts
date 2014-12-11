@@ -156,8 +156,25 @@ export class Parser
 	 */
 	parseStyleSheet(): AST.StyleSheet
 	{
-		var ruleList = this.parseRuleList(false, true);
-		return ruleList ? <AST.StyleSheet> new AST.StyleSheet(ruleList) : null;
+		var cdo: Tokenizer.Token = null,
+			cdc: Tokenizer.Token = null,
+			ruleList: AST.RuleList;
+
+		if (this._currentToken.token === Tokenizer.EToken.CDO)
+		{
+			cdo = this._currentToken;
+			this.nextToken();
+		}
+
+		ruleList = this.parseRuleList();
+
+		if (this._currentToken.token === Tokenizer.EToken.CDC)
+		{
+			cdc = this._currentToken;
+			this.nextToken();
+		}
+
+		return ruleList ? <AST.StyleSheet> new AST.StyleSheet(ruleList, cdo, cdc) : null;
 	}
 
 	/**
@@ -179,7 +196,7 @@ export class Parser
 	 *
 	 * @returns {AST.RuleList}
 	 */
-	parseRuleList(isBlock?: boolean, isTopLevel?: boolean): AST.RuleList
+	parseRuleList(isBlock?: boolean): AST.RuleList
 	{
 		var rule: AST.AbstractRule,
 			rules: AST.AbstractRule[] = [],
@@ -207,28 +224,6 @@ export class Parser
 				rbrace = this._currentToken;
 				this.nextToken();
 				break;
-			}
-			else if (token === Tokenizer.EToken.CDO || token === Tokenizer.EToken.CDC)
-			{
-				// If the top-level flag is set, do nothing.
-				// Otherwise, reconsume the current input token. Consume a qualified rule.
-				// If anything is returned, append it to the list of rules.
-
-				if (isTopLevel)
-					this.nextToken();
-				else
-				{
-					try
-					{
-						rule = this.parseQualifiedRule();
-						if (rule)
-							rules.push(rule);
-					}
-					catch (e)
-					{
-						rules.push(AST.Rule.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.RBRACE ], [ Tokenizer.EToken.AT_KEYWORD ])));
-					}
-				}
 			}
 			else if (token === Tokenizer.EToken.AT_KEYWORD)
 			{

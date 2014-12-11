@@ -1209,20 +1209,41 @@ export class RuleList extends ASTNodeList<AbstractRule>
 export class StyleSheet extends ASTNode implements IRulesContainer
 {
 	private _rules: RuleList;
+	private _cdo: Tokenizer.Token;
+	private _cdc: Tokenizer.Token;
 
 
-	constructor(ruleList: RuleList)
+	constructor(ruleList: RuleList, cdo?: Tokenizer.Token, cdc?: Tokenizer.Token)
 	{
+		var t: T.INode;
+
 		super();
 
 		this._rules = ruleList;
 		this._rules._parent = this;
 		this._rules.removeBraces();
 
-		this.range.startLine = ruleList.range.startLine;
-		this.range.startColumn = ruleList.range.startColumn;
-		this.range.endLine = ruleList.range.endLine;
-		this.range.endColumn = ruleList.range.endColumn;
+		this._cdo = cdo;
+		this._cdc = cdc;
+
+		if (this._cdo)
+			this._cdo.parent = this;
+		if (this._cdc)
+			this._cdc.parent = this;
+
+		t = cdo || ruleList || cdc;
+		if (t)
+		{
+			this.range.startLine = t.range.startLine;
+			this.range.startColumn = t.range.startColumn;
+		}
+
+		t = cdc || ruleList || cdo;
+		if (t)
+		{
+			this.range.endLine = t.range.endLine;
+			this.range.endColumn = t.range.endColumn;
+		}
 	}
 
 	insertRule(rule: AbstractRule, pos?: number): void
@@ -1243,13 +1264,35 @@ export class StyleSheet extends ASTNode implements IRulesContainer
 	getChildren(): T.INode[]
 	{
 		if (this._children === null)
-			this._children = [ this._rules ];
+		{
+			this._children = [];
+
+			if (this._cdo)
+				this._children.push(this._cdo);
+			if (this._rules)
+				this._children.push(this._rules);
+			if (this._cdc)
+				this._children.push(this._cdc);
+		}
+
 		return this._children;
 	}
 
 	getTokens(): Tokenizer.Token[]
 	{
-		return this._rules.getTokens();
+		if (this._tokens === null)
+		{
+			this._tokens = [];
+
+			if (this._cdo)
+				this._tokens.push(this._cdo);
+			if (this._rules)
+				this._tokens = this._tokens.concat(this._rules.getTokens());
+			if (this._cdc)
+				this._tokens.push(this._cdc);
+		}
+
+		return this._tokens;
 	}
 
 	getRules(): RuleList
@@ -1262,16 +1305,35 @@ export class StyleSheet extends ASTNode implements IRulesContainer
 		var that = this;
 		return this._walk(walker, function()
 		{
-			return that._rules.walk(walker);
+			var result: any[] = [],
+				r: any;
+
+			if (that._cdo && (r = that._cdo.walk(walker)) !== undefined)
+				result = result.concat(r);
+			if (that._rules && (r = that._rules.walk(walker)) !== undefined)
+				result = result.concat(r);
+			if (that._cdc && (r = that._cdc.walk(walker)) !== undefined)
+				result = result.concat(r);
+
+			return result;
 		});
 	}
 
 	toString(): string
 	{
+		var s = '';
+
 		if (this._hasError)
 			return this.errorTokensToString();
 
-		return this._rules.toString();
+		if (this._cdo)
+			s += this._cdo.toString();
+		if (this._rules)
+			s += this._rules.toString();
+		if (this._cdc)
+			s += this._cdc.toString();
+
+		return s;
 	}
 }
 
