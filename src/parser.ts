@@ -93,11 +93,11 @@ export function parseDeclaration(declarationSrc: string, options?: Tokenizer.ITo
 		{
 			token = t.leadingTrivia[i];
 			if (token.token === Tokenizer.EToken.COMMENT)
-				return parser.parseDisabledDeclaration(token);
+				return parser.parseDisabledDeclaration(token, false);
 		}
 	}
 
-	return parser.parseDeclaration();
+	return parser.parseDeclaration(false);
 }
 
 
@@ -174,7 +174,7 @@ export class Parser
 			this.nextToken();
 		}
 
-		return ruleList ? <AST.StyleSheet> new AST.StyleSheet(ruleList, cdo, cdc) : null;
+		return <AST.StyleSheet> new AST.StyleSheet(ruleList || new AST.RuleList([], null, null), cdo, cdc);
 	}
 
 	/**
@@ -442,7 +442,7 @@ export class Parser
 				// Consume a component value and append it to the value of the block.
 				try
 				{
-					declaration = this.parseDeclaration(true);
+					declaration = this.parseDeclaration(true, true);
 					if (declaration)
 						declarations.push(declaration);
 					prevIsDeclaration = !!declaration;
@@ -463,7 +463,7 @@ export class Parser
 	 *
 	 * @returns {AST.Declaration}
 	 */
-	parseDeclaration(omitSemicolon?: boolean): AST.Declaration
+	parseDeclaration(throwErrors = true, omitSemicolon?: boolean): AST.Declaration
 	{
 		var t = this._currentToken,
 			nameValues: AST.ComponentValue[],
@@ -486,13 +486,18 @@ export class Parser
 		// If the current input token is anything other than a <colon-token>,
 		// this is a parse error. Return nothing.
 		// Otherwise, consume the next input token.
-		this.expect(Tokenizer.EToken.COLON, name);
-		colon = this._currentToken;
-		this.nextToken();
+		if (throwErrors)
+			this.expect(Tokenizer.EToken.COLON, name);
+		if (this._currentToken.token === Tokenizer.EToken.COLON)
+		{
+			colon = this._currentToken;
+			this.nextToken();
+		}
 
 		value = this.parseDeclarationValue();
 
-		this.expect(Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.RBRACE, name, colon, value);
+		if (throwErrors)
+			this.expect(Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.RBRACE, name, colon, value);
 		if (this._currentToken.token === Tokenizer.EToken.SEMICOLON)
 		{
 			semicolon = this._currentToken;
@@ -593,7 +598,7 @@ export class Parser
 	 * @param token
 	 * @returns {*}
 	 */
-	parseDisabledDeclaration(token: Tokenizer.Token): AST.Declaration
+	parseDisabledDeclaration(token: Tokenizer.Token, throwErrors = true): AST.Declaration
 	{
 		var declaration: AST.Declaration;
 
@@ -602,7 +607,7 @@ export class Parser
 
 		try
 		{
-			declaration = new Parser(token.src, { tokenizeComments: true }).parseDeclaration();
+			declaration = new Parser(token.src, { tokenizeComments: true }).parseDeclaration(throwErrors);
 
 			// ignore if no closing comment was found
 			if (!declaration.getRComment())

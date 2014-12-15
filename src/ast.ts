@@ -458,7 +458,7 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 			offsetColumn: number;
 
 		if (!this._nodes)
-			this._nodes = [];
+			nodes = this._nodes = [];
 
 		// set the parent of the node to insert
 		if (node instanceof ASTNode)
@@ -499,6 +499,7 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 
 		// insert the new node and update the node references
 		nodes.splice(pos, 0, node);
+
 		for (i = pos; i < len + 1; i++)
 			this[i] = nodes[i];
 

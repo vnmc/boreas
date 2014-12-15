@@ -175,6 +175,15 @@ describe('CSS-Tokenizer', function()
 		token.token.should.eql(T.EToken.BAD_STRING);
 	});
 
+	it('should tokenize bad strings', function()
+	{
+		var t = new Tokenizer('font-family: ";');
+
+		t.nextToken().token.should.eql(T.EToken.IDENT);
+		t.nextToken().token.should.eql(T.EToken.COLON);
+		t.nextToken().token.should.eql(T.EToken.BAD_STRING);
+	});
+
 	it('should tokenize URLs', function()
 	{
 		var t = new Tokenizer('url(1.png) url( "2.jpg" ) URL(\'3.gif\') url(x"a) X');

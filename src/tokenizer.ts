@@ -1336,14 +1336,14 @@ export class Tokenizer
 			else if (isNaN(cp))
 			{
 				// Return the <string-token>.
-				break;
+				return this.token(EToken.BAD_STRING, end + s, s);
 			}
 			else if (cp === EChar.LF)
 			{
 				// This is a parse error.
 				// Reconsume the current input code point, create a
 				// <bad-string-token>, and return it.
-				return this.token(EToken.BAD_STRING);
+				return this.token(EToken.BAD_STRING, end + s, s);
 			}
 			else if (cp === EChar.REVERSE_SOLIDUS)
 			{
