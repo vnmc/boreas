@@ -233,6 +233,93 @@ function wouldStartNumber(s: string, pos: number): boolean
 	return isDigit(c);
 }
 
+function isSignificantWhitespace(t1: Token, t2: Token): boolean
+{
+	var token1 = t1.token,
+		token2 = t2.token,
+		src1: string;
+
+	if (token1 === EToken.IDENT)
+	{
+		return token2 === EToken.IDENT || token2 === EToken.HASH || token2 === EToken.FUNCTION ||
+			token2 === EToken.URL || token2 === EToken.BAD_URL ||
+			(token2 === EToken.DELIM && (t2.src === '-' || t2.src === '*' || t2.src === '.')) ||
+			token2 === EToken.LBRACKET ||
+			token2 === EToken.NUMBER || token2 === EToken.PERCENTAGE || token2 === EToken.DIMENSION ||
+			token2 === EToken.UNICODE_RANGE || token2 === EToken.CDC || token2 === EToken.LPAREN;
+	}
+	if (token1 === EToken.HASH || token1 === EToken.DIMENSION)
+	{
+		return token2 === EToken.IDENT || token2 === EToken.HASH || token2 === EToken.FUNCTION ||
+			token2 === EToken.URL || token2 === EToken.BAD_URL ||
+			(token2 === EToken.DELIM && (t2.src === '-' || t2.src === '*' || t2.src === '.')) ||
+			token2 === EToken.NUMBER || token2 === EToken.PERCENTAGE || token2 === EToken.DIMENSION ||
+			token2 === EToken.LBRACKET ||
+			token2 === EToken.UNICODE_RANGE || token2 === EToken.CDC;
+	}
+	if (token1 === EToken.DELIM)
+	{
+		src1 = t1.src;
+
+		if (src1 === '#')
+		{
+			return token2 === EToken.IDENT || token2 === EToken.FUNCTION || token2 === EToken.URL ||
+				token2 === EToken.BAD_URL || (token2 === EToken.DELIM && t2.src === '-') ||
+				token2 === EToken.NUMBER || token2 === EToken.PERCENTAGE || token2 === EToken.DIMENSION ||
+				token2 === EToken.UNICODE_RANGE;
+		}
+		if (src1 === '-')
+		{
+			return token2 === EToken.IDENT || token2 === EToken.FUNCTION ||
+				token2 === EToken.URL || token2 === EToken.BAD_URL ||
+				token2 === EToken.NUMBER || token2 === EToken.PERCENTAGE || token2 === EToken.DIMENSION ||
+				token2 === EToken.UNICODE_RANGE;
+		}
+		if (src1 === '@')
+		{
+			return token2 === EToken.IDENT || token2 === EToken.FUNCTION ||
+				token2 === EToken.URL || token2 === EToken.BAD_URL ||
+				(token2 === EToken.DELIM && t2.src === '-') ||
+				token2 === EToken.UNICODE_RANGE;
+		}
+		if (src1 === '*')
+		{
+			return token2 === EToken.IDENT || token2 === EToken.HASH || token2 === EToken.LBRACKET ||
+				(token2 === EToken.DELIM && (t2.src === '*' || t2.src === '.'));
+		}
+		if (src1 === '.' || src1 === '+')
+			return token2 === EToken.NUMBER || token2 === EToken.PERCENTAGE || token2 === EToken.DIMENSION;
+		if (src1 === '$' || src1 === '*' || src1 === '^' || src1 === '~')
+			return token2 === EToken.DELIM && t2.src === '=';
+		if (src1 === '|')
+			return token2 === EToken.DELIM && (t2.src === '=' || t2.src === '|');
+		if (src1 === '/')
+			return token2 === EToken.DELIM && t2.src === '*';
+
+		return false;
+	}
+	if (token1 === EToken.RBRACKET)
+	{
+		return token2 === EToken.IDENT || token2 === EToken.HASH || token2 === EToken.LBRACKET ||
+			(token2 === EToken.DELIM && (t2.src === '*' || t2.src === '.'));
+	}
+	if (token1 === EToken.NUMBER)
+	{
+		return token2 === EToken.IDENT || token2 === EToken.FUNCTION ||
+			token2 === EToken.URL || token2 === EToken.BAD_URL ||
+			token2 === EToken.NUMBER || token2 === EToken.PERCENTAGE || token2 === EToken.DIMENSION ||
+			token2 === EToken.UNICODE_RANGE;
+	}
+	if (token1 === EToken.UNICODE_RANGE)
+	{
+		return token2 === EToken.IDENT || token2 === EToken.FUNCTION ||
+			token2 === EToken.NUMBER || token2 === EToken.PERCENTAGE || token2 === EToken.DIMENSION ||
+			(token2 === EToken.DELIM && t2.src === '?');
+	}
+
+	return false;
+}
+
 
 // ==================================================================
 // TOKENIZER IMPLEMENTATION
@@ -559,6 +646,7 @@ export class Tokenizer
 	private _options: ITokenizerOptions;
 
 	private _currentToken: Token = null;
+	private _nextToken: Token = null;
 
 
 	/**
@@ -594,8 +682,19 @@ export class Tokenizer
 		var leadingTrivia = [],
 			trailingTrivia = [],
 			len: number,
+			i: number,
+			whitespaceIdx: number,
+			lastRange: T.ISourceRange,
 			currentToken = this._currentToken,
 			t: Token;
+
+		if (this._nextToken !== null)
+		{
+			t = this._currentToken;
+			this._currentToken = this._nextToken;
+			this._nextToken = null;
+			return t;
+		}
 
 		if (currentToken === null)
 		{
@@ -619,7 +718,42 @@ export class Tokenizer
 				trailingTrivia.push(t);
 			else
 			{
-				this._currentToken = t;
+				len = trailingTrivia.length;
+				whitespaceIdx = -1;
+				for (i = 0; i < len; i++)
+				{
+					if (trailingTrivia[i].token === EToken.WHITESPACE)
+					{
+						whitespaceIdx = i;
+						break;
+					}
+				}
+
+				if (whitespaceIdx >= 0 && isSignificantWhitespace(currentToken, t))
+				{
+					// token is a significant whitespace
+					// find the first whitespace in the list of trailing trivia
+
+					// set the current token to the whitespace
+					this._currentToken = trailingTrivia[whitespaceIdx];
+					if (whitespaceIdx + 1 < len)
+					{
+						this._currentToken.trailingTrivia = trailingTrivia.slice(whitespaceIdx + 1);
+
+						lastRange = trailingTrivia[len - 1].range;
+						this._currentToken.range.endLine = lastRange.endLine;
+						this._currentToken.range.endColumn = lastRange.endColumn;
+					}
+
+					this._nextToken = t;
+
+					// remove the significant whitespace and the following trivia from the
+					// trailing trivia of the current token
+					trailingTrivia = trailingTrivia.slice(0, whitespaceIdx);
+				}
+				else
+					this._currentToken = t;
+
 				break;
 			}
 

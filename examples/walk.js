@@ -12,21 +12,18 @@ function normalize(ast)
     {
         if (ast instanceof Tokenizer.Token)
         {
-            var s = ast.src.toLowerCase();
             switch (ast.token)
             {
-            case Tokenizer.EToken.IDENT:
-                if (ast.hasTrailingWhitespace() && !AST.hasParent(ast, AST.SimpleSelector))
-                    s += ' ';
-                break;
+            case Tokenizer.EToken.WHITESPACE:
+                return ' ';
 
             case Tokenizer.EToken.AT_KEYWORD:
             case Tokenizer.EToken.RPAREN:
-                s += ' ';
-                break;
-            }
+                return ast.src.toLowerCase() + ' ';
 
-            return s;
+            default:
+                return ast.src.toLowerCase();
+            }
         }
         else if (ast instanceof AST.SelectorCombinator)
             return ast.getToken().token === Tokenizer.EToken.WHITESPACE ? ' ' : ast.getToken().src;
@@ -41,7 +38,7 @@ function normalize(ast)
 
 var src = 'BODY > h1, p .Cl1~ b,\n#code1.cl2 .pink::after';
 // var src = '@import url("test.css")';
-// var src = '@supports (display:\ttable-cell) and\n\t(display: list-item) and\n\t(display:run-in)';
-// var src = '@media screen and (max-width: 600px)';
+//var src = '@supports (display:\ttable-cell) and\n\t(display: list-item) and\n\t(display:run-in)';
+//var src = '@media screen and (max-width: 600px)';
 
 console.log(normalize(Parser.parseRule(src)));

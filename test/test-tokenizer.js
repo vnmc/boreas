@@ -13,18 +13,30 @@ describe('CSS-Tokenizer', function()
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.IDENT);
 		token.src.should.eql('anidentifier');
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
 		
 		token = t.nextToken();
 		token.token.should.eql(T.EToken.IDENT);
 		token.src.should.eql('ident1');
 
 		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		token = t.nextToken();
 		token.token.should.eql(T.EToken.IDENT);
 		token.src.should.eql('ident-with-hyphens');
 
 		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		token = t.nextToken();
 		token.token.should.eql(T.EToken.IDENT);
 		token.src.should.eql('ident_with_underscores');
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
 
 		token = t.nextToken();
 		token.token.should.eql(T.EToken.IDENT);
@@ -39,23 +51,36 @@ describe('CSS-Tokenizer', function()
 		token.should.have.property('leadingTrivia');
 		token.leadingTrivia.length.should.eql(1);
 		token.leadingTrivia[0].src.should.eql(' ');
-		token.should.have.property('trailingTrivia');
-		token.trailingTrivia.length.should.eql(1);
-		token.trailingTrivia[0].src.should.eql('\t');
 
-		var token = t.nextToken();
+		token = t.nextToken();
 		token.should.not.have.property('leadingTrivia');
-		token.should.have.property('trailingTrivia');
-		token.trailingTrivia.length.should.eql(1);
-		token.trailingTrivia[0].src.should.eql('\n');
+		token.should.not.have.property('trailingTrivia');
+		token.token.should.eql(T.EToken.WHITESPACE);
+		token.src.should.eql('\t');
 
-		var token = t.nextToken();
-		token.should.have.property('trailingTrivia');
-		token.trailingTrivia[0].src.should.eql(' \t ');
+		t.nextToken();
 
-		var token = t.nextToken();
-		token.should.have.property('trailingTrivia');
-		token.trailingTrivia[0].src.should.eql('\t\n\t\t');
+		token = t.nextToken();
+		token.should.not.have.property('leadingTrivia');
+		token.should.not.have.property('trailingTrivia');
+		token.token.should.eql(T.EToken.WHITESPACE);
+		token.src.should.eql('\n');
+
+		t.nextToken();
+
+		token = t.nextToken();
+		token.should.not.have.property('leadingTrivia');
+		token.should.not.have.property('trailingTrivia');
+		token.token.should.eql(T.EToken.WHITESPACE);
+		token.src.should.eql(' \t ');
+
+		t.nextToken();
+
+		token = t.nextToken();
+		token.should.not.have.property('leadingTrivia');
+		token.should.not.have.property('trailingTrivia');
+		token.token.should.eql(T.EToken.WHITESPACE);
+		token.src.should.eql('\t\n\t\t');
 	});
 
 	it('should tokenize numbers', function()
@@ -67,53 +92,77 @@ describe('CSS-Tokenizer', function()
 		token.src.should.eql('5');
 		token.value.should.eql(5);
 
+		t.nextToken();
+
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.NUMBER);
 		token.src.should.eql('123');
 		token.value.should.eql(123);
 
+		t.nextToken();
+
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.NUMBER);
 		token.src.should.eql('1.2');
 
+		t.nextToken();
+
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.NUMBER);
 		token.src.should.eql('.8');
+
+		t.nextToken();
 
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.NUMBER);
 		token.src.should.eql('+2');
 		token.value.should.eql(2);
 
+		t.nextToken();
+
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.NUMBER);
 		token.src.should.eql('+33');
+
+		t.nextToken();
 
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.NUMBER);
 		token.src.should.eql('-4');
 		token.value.should.eql(-4);
 
+		t.nextToken();
+
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.NUMBER);
 		token.src.should.eql('-56');
+
+		t.nextToken();
 
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.NUMBER);
 		token.src.should.eql('1e3');
 		token.value.should.eql(1000);
 
+		t.nextToken();
+
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.NUMBER);
 		token.src.should.eql('-1e3');
+
+		t.nextToken();
 
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.NUMBER);
 		token.src.should.eql('-1e+12');
 
+		t.nextToken();
+
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.NUMBER);
 		token.src.should.eql('+2.5e-5');
+
+		t.nextToken();
 
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.NUMBER);
@@ -130,16 +179,22 @@ describe('CSS-Tokenizer', function()
 		token.value.should.eql(3);
 		token.unit.should.eql('px');
 
+		t.nextToken();
+
 		token = t.nextToken();
 		token.token.should.eql(T.EToken.DIMENSION);
 		token.src.should.eql('4em');
 		token.value.should.eql(4);
 		token.unit.should.eql('em');
 
+		t.nextToken();
+
 		token = t.nextToken();
 		token.token.should.eql(T.EToken.DIMENSION);
 		token.value.should.eql(-0.2);
 		token.unit.should.eql('rem');
+
+		t.nextToken();
 
 		token = t.nextToken();
 		token.token.should.eql(T.EToken.PERCENTAGE);
@@ -282,6 +337,9 @@ describe('CSS-Tokenizer', function()
 		token.value.should.eql('myid');
 
 		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		token = t.nextToken();
 		token.token.should.eql(T.EToken.HASH);
 		token.src.should.eql('#my\\#id');
 		token.value.should.eql('my\\#id');
@@ -289,7 +347,7 @@ describe('CSS-Tokenizer', function()
 
 	it('should tokenize delimiters', function()
 	{
-		var t = new Tokenizer('~ | ^ $ * + # @ - . / < \\\n');
+		var t = new Tokenizer('- ~ | ^ $ * + # @ . / < \\\n');
 
 		var token = undefined;
 		for (var i = 0; ; i++)
@@ -362,6 +420,9 @@ describe('CSS-Tokenizer', function()
 		token.token.should.eql(T.EToken.NUMBER);
 
 		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		token = t.nextToken();
 		token.token.should.eql(T.EToken.UNICODE_RANGE);
 		token.src.should.eql('U+1fff8?');
 		token.start.should.eql(0x1fff80);
@@ -401,5 +462,235 @@ describe('CSS-Tokenizer', function()
 		token = t.nextToken();
 		token.token.should.eql(T.EToken.IDENT);
 		token.src.should.eql('xxx');
+	});
+
+	it('should tokenize whitespace combinators', function()
+	{
+		var t = new Tokenizer('#id1 #id2 .class1 #id3 .class2 a .class3 b #id4 * * c * .class4 * #id5 [id=u] [id=v] .class5 [id=w] d [id=x] * [id=y]');
+
+		// #id1
+		var token = t.nextToken();
+		token.token.should.eql(T.EToken.HASH);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// #id2
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.HASH);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// .class1
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token.src.should.eql('.');
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// #id3
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.HASH);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// .class2
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token.src.should.eql('.');
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// a
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// .class3
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token.src.should.eql('.');
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// b
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// #id4
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.HASH);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// *
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token.src.should.eql('*');
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// *
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token.src.should.eql('*');
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// c
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// *
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token.src.should.eql('*');
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// .class4
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token.src.should.eql('.');
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// *
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token.src.should.eql('*');
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// #id5
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.HASH);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// [id=u]
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.LBRACKET);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.RBRACKET);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// [id=v]
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.LBRACKET);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.RBRACKET);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// .class5
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token.src.should.eql('.');
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// [id=w]
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.LBRACKET);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.RBRACKET);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// d
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// [id=x]
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.LBRACKET);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.RBRACKET);
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// *
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token.src.should.eql('*');
+
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.WHITESPACE);
+
+		// [id=y]
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.LBRACKET);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.DELIM);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.IDENT);
+		token = t.nextToken();
+		token.token.should.eql(T.EToken.RBRACKET);
 	});
 });

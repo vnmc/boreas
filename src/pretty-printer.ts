@@ -87,10 +87,24 @@ export function beautify(node: T.INode)
 
         // add a newline after a rule
         else if (ast instanceof AST.AbstractRule)
-            ret = join(descend()) + newline();
+        {
+            if ((ast instanceof AST.AtRule) && ((<AST.AtRule> ast).getRules() || (<AST.AtRule> ast).getDeclarations()))
+            {
+                // add a trailing space after the prelude
+                ret = (<AST.AtRule> ast).getAtKeyword().walk(walker) +
+                    trailingSpace((<AST.AtRule> ast).getPrelude().walk(walker));
 
-        else if (ast instanceof AST.DeclarationValue)
-            ret = join(descend(), ' ');
+                // walk the rules/declarations
+                if ((<AST.AtRule> ast).getRules())
+                    ret += (<AST.AtRule> ast).getRules().walk(walker);
+                else
+                    ret += (<AST.AtRule> ast).getDeclarations().walk(walker);
+            }
+            else
+                ret = join(descend());
+
+            ret += newline();
+        }
 
         // default
         else
@@ -107,6 +121,7 @@ function join(arr: any, sep: string = ''): string
     return Array.isArray(arr) ? arr.join(sep) : (arr || '');
 }
 
+
 function leadingSpace(s: string): string
 {
     return (s[0] === ' ') ? s : ' ' + s;
@@ -117,73 +132,68 @@ function trailingSpace(s: string): string
     return (s[s.length - 1] === ' ') ? s : s + ' ';
 }
 
-function beautifyTokenComments(triviaToken: Tokenizer.Token[], addSpaces: boolean)
+function beautifyTokenComments(triviaToken: Tokenizer.Token[]/*, addSpaces: boolean*/)
 {
     var s = '',
         len: number,
         i: number,
-        t: Tokenizer.Token,
-        prevWasComment = false;
+        t: Tokenizer.Token;
 
-    if (!triviaToken)
+    if (!triviaToken || triviaToken.length === 0)
         return '';
 
-    len = triviaToken.length;
+    // skip trailing whitespaces
+    for (len = triviaToken.length; len > 0; len--)
+        if (triviaToken[len - 1].token !== Tokenizer.EToken.WHITESPACE)
+            break;
+
+    // find the first non-whitespace
     for (i = 0; i < len; i++)
+        if (triviaToken[i].token !== Tokenizer.EToken.WHITESPACE)
+            break;
+
+    // construct the string
+    for ( ; i < len; i++)
     {
         t = triviaToken[i];
-
-        if (t.token === Tokenizer.EToken.COMMENT)
-        {
-            if (prevWasComment)
-                s += ' ';
-            s += t.src;
-            prevWasComment = true;
-        }
-        else
-        {
-            //if (addSpaces)
-            //    s += ' ';
-            prevWasComment = false;
-        }
+        s += t.token === Tokenizer.EToken.COMMENT ? t.src : ' ';
     }
 
-    return s;
+    return s && leadingSpace(trailingSpace(s));
 }
 
 function beautifyToken(token: Tokenizer.Token, prev: string): string
 {
-    var ret: string,
-        inDeclarationValue = AST.hasParent(token, AST.DeclarationValue);
+    var start: string,
+        end: string;
 
     if (!token)
         return '';
 
-    ret = //Utilities.trim(
-        beautifyTokenComments(token.leadingTrivia, inDeclarationValue) +
-        token.src +
-        beautifyTokenComments(token.trailingTrivia, inDeclarationValue);
-    //);
+    start = beautifyTokenComments(token.leadingTrivia);
+    end = beautifyTokenComments(token.trailingTrivia);
 
     switch (token.token)
     {
+    case Tokenizer.EToken.WHITESPACE:
+        if (start[start.length - 1] === ' ')
+        {
+            if (end[0] === ' ')
+                return start + end.substr(1);
+            return start + end;
+        }
+        if (end[0] === ' ')
+            return start + end;
+        return start + ' ' + end;
+
+    case Tokenizer.EToken.AT_KEYWORD:
     case Tokenizer.EToken.COMMA:
         // make sure that there always is a space after a ":" and a ","
-        ret = trailingSpace(ret);
-        break;
+        return trailingSpace(start + token.src + end);
 
     case Tokenizer.EToken.COLON:
         // add a trailing space if this token doesn't occur within a selector
-        if (!AST.hasParent(token, AST.Selector))
-            ret = trailingSpace(ret);
-        break;
-
-    case Tokenizer.EToken.LPAREN:
-    case Tokenizer.EToken.LBRACKET:
-    case Tokenizer.EToken.FUNCTION:
-        // remove any trailing whitespaces
-        ret = ret.replace(/\s+$/, '');
-        break;
+        return start + token.src + end + (AST.hasParent(token, AST.Selector) ? '' : ' ');
 
     case Tokenizer.EToken.INCLUDE_MATCH:
     case Tokenizer.EToken.DASH_MATCH:
@@ -191,9 +201,11 @@ function beautifyToken(token: Tokenizer.Token, prev: string): string
     case Tokenizer.EToken.SUFFIX_MATCH:
     case Tokenizer.EToken.SUBSTRING_MATCH:
     case Tokenizer.EToken.COLUMN:
-        ret = leadingSpace(trailingSpace(ret));
-        break;
+        return leadingSpace(trailingSpace(start + token.src + end));
+
+    default:
+        return start + token.src + end;
     }
 
-    return ret;
+    return '';
 }

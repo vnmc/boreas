@@ -10,7 +10,8 @@ var src =
     '::-webkit-scrollbar-track:hover {color: green;}';
 */
 
-var src = Fs.readFileSync('../test/fixtures/test.css', 'utf8');
+//var src = Fs.readFileSync('../test/fixtures/test.css', 'utf8');
+var src = '*\t/* hello! */ {border: 1px\n/*x*/solid\t red ; } @media screen and (max-width:111px) { body{color:blue}}';
 
 var ast = Parser.parse(src);
 console.log(PrettyPrinter.beautify(ast));

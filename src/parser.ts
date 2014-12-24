@@ -463,7 +463,7 @@ export class Parser
 	 *
 	 * @returns {AST.Declaration}
 	 */
-	parseDeclaration(throwErrors = true, omitSemicolon?: boolean): AST.Declaration
+	parseDeclaration(throwErrors: boolean = true, omitSemicolon?: boolean): AST.Declaration
 	{
 		var t = this._currentToken,
 			nameValues: AST.ComponentValue[],
@@ -598,7 +598,7 @@ export class Parser
 	 * @param token
 	 * @returns {*}
 	 */
-	parseDisabledDeclaration(token: Tokenizer.Token, throwErrors = true): AST.Declaration
+	parseDisabledDeclaration(token: Tokenizer.Token, throwErrors: boolean = true): AST.Declaration
 	{
 		var declaration: AST.Declaration;
 
@@ -683,62 +683,13 @@ export class Parser
 			pipe: Tokenizer.Token,
 			colon1: Tokenizer.Token,
 			colon2: Tokenizer.Token,
-			isCombinator = false,
-			previousIsCombinator = false,
-			previousToken: Tokenizer.Token = null,
-			separator: Tokenizer.Token,
-			checkForCombinator: () => void;
-
-		checkForCombinator = function()
-		{
-			var trivia: Tokenizer.Token[],
-				whitespace: Tokenizer.Token,
-				len: number,
-				i: number,
-				endLine: number,
-				endColumn: number,
-				newEndLine: number,
-				newEndColumn: number,
-				n: T.INode;
-
-			if (!previousIsCombinator && previousToken && previousToken.hasTrailingWhitespace())
-			{
-				trivia = previousToken.trailingTrivia;
-				len = trivia.length;
-				for (i = 0; i < len; i++)
-				{
-					if (trivia[i].token === Tokenizer.EToken.WHITESPACE)
-						break;
-				}
-				whitespace = trivia[i];
-				whitespace.leadingTrivia = trivia.slice(0, i);
-				whitespace.trailingTrivia = trivia.slice(i + 1);
-
-				values.push(new AST.SelectorCombinator(whitespace));
-
-				endLine = trivia[len - 1].range.endLine;
-				endColumn = trivia[len - 1].range.endColumn;
-				newEndLine = whitespace.range.startLine;
-				newEndColumn = whitespace.range.startColumn;
-
-				delete previousToken.trailingTrivia;
-				for (n = previousToken; n !== null; n = n.getParent())
-				{
-					if (n.range.endLine === endLine && n.range.endColumn === endColumn)
-					{
-						n.range.endLine = newEndLine;
-						n.range.endColumn = newEndColumn;
-					}
-				}
-			}
-		};
+			separator: Tokenizer.Token;
 
 		try
 		{
 			for (t = this._currentToken; ; )
 			{
 				token = t.token;
-				isCombinator = token === Tokenizer.EToken.DELIM && (t.src === '+' || t.src === '>' || t.src === '~');
 
 				if (token === Tokenizer.EToken.EOF || token === Tokenizer.EToken.LBRACE)
 					break;
@@ -755,13 +706,11 @@ export class Parser
 					{
 						if (token === Tokenizer.EToken.LBRACKET)
 						{
-							checkForCombinator();
 							value = new AST.AttributeSelector(<AST.BlockComponentValue> value, namespace, pipe);
 							namespace = null;
 							pipe = null;
 						}
 
-						previousToken = getLastToken(value);
 						values.push(value);
 					}
 
@@ -771,10 +720,7 @@ export class Parser
 				{
 					value = this.parseFunction();
 					if (value)
-					{
-						previousToken = getLastToken(value);
 						values.push(value);
-					}
 
 					t = this._currentToken;
 				}
@@ -790,53 +736,40 @@ export class Parser
 							values.pop();
 						}
 					}
-					pipe = t;
 
-					previousToken = t;
+					pipe = t;
 					t = this.nextToken();
 				}
 				else if (token === Tokenizer.EToken.HASH)
 				{
-					checkForCombinator();
 					values.push(new AST.IDSelector(t, namespace, pipe));
 					namespace = null;
 					pipe = null;
-
-					previousToken = t;
 					t = this.nextToken();
 				}
 				else if (token === Tokenizer.EToken.DELIM && t.src === '.')
 				{
-					checkForCombinator();
 					ident = this.nextToken();
 					values.push(new AST.ClassSelector(t, ident, namespace, pipe));
 
 					namespace = null;
 					pipe = null;
-
-					previousToken = ident;
 					t = this.nextToken();
 				}
 				else if (token === Tokenizer.EToken.DELIM && t.src === '*')
 				{
-					checkForCombinator();
 					values.push(new AST.UniversalSelector(t, namespace, pipe));
 
 					namespace = null;
 					pipe = null;
-
-					previousToken = t;
 					t = this.nextToken();
 				}
 				else if (token === Tokenizer.EToken.IDENT)
 				{
-					checkForCombinator();
 					values.push(new AST.TypeSelector(t, namespace, pipe));
 
 					namespace = null;
 					pipe = null;
-
-					previousToken = t;
 					t = this.nextToken();
 				}
 				else if (token === Tokenizer.EToken.COLON)
@@ -852,34 +785,27 @@ export class Parser
 					}
 
 					if (t.token === Tokenizer.EToken.FUNCTION)
-					{
 						value = this.parseFunction();
-						previousToken = getLastToken(value);
-					}
 					else
 					{
 						value = new AST.ComponentValue(t);
-						previousToken = t;
 						this.nextToken();
 					}
 
 					values.push(new AST.PseudoClass(colon1, colon2, value));
 					t = this._currentToken;
 				}
-				else if (isCombinator)
+				else if (token === Tokenizer.EToken.WHITESPACE ||
+					(token === Tokenizer.EToken.DELIM && (t.src === '+' || t.src === '>' || t.src === '~')))
 				{
 					values.push(new AST.SelectorCombinator(t));
-					previousToken = t;
 					t = this.nextToken();
 				}
 				else
 				{
 					values.push(new AST.ComponentValue(t));
-					previousToken = t;
 					t = this.nextToken();
 				}
-
-				previousIsCombinator = isCombinator;
 			}
 
 
@@ -1260,7 +1186,7 @@ export class Parser
 			if (spec.keyword === value)
 				return spec;
 
-			// vendor-prexifed?
+			// vendor-prefixed?
 			if (isPrefixed && value.substr(-keyword.length - 1) === '-' + keyword)
 				return spec;
 		}

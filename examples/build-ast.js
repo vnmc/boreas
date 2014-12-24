@@ -29,7 +29,9 @@ var styleSheet = new AST.StyleSheet(
 );
 
 console.log('> toString():');
+console.log('----------------------------------------------------');
 console.log(styleSheet.toString());
 
 console.log('\n> beautify():');
+console.log('----------------------------------------------------');
 console.log(PrettyPrinter.beautify(styleSheet));

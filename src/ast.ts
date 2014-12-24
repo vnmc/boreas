@@ -141,7 +141,7 @@ export function toStringNormalize(tokens: Tokenizer.Token[]): string
 			s += ' ';
 	}
 
-	return s;
+	return Utilities.trim(s);
 }
 
 
@@ -3159,6 +3159,7 @@ export class AtCustomMedia extends AtRule
 			children: T.INode[],
 			len: number,
 			i: number,
+			l: number,
 			node: T.INode,
 			tokens: Tokenizer.Token[] = [],
 			nodeTokens: Tokenizer.Token[];
@@ -3173,11 +3174,16 @@ export class AtCustomMedia extends AtRule
 				nodeTokens = node.getTokens();
 				tokens = tokens.concat(nodeTokens);
 
-				if (nodeTokens && nodeTokens.length > 0 && nodeTokens[nodeTokens.length - 1].hasTrailingWhitespace())
+				if (nodeTokens)
 				{
-					this._extensionName = toStringNormalize(tokens);
-					this._media = new ComponentValueList(<IComponentValue[]> children.slice(i + 1));
-					break;
+					l = nodeTokens.length;
+
+					if (l > 0 && (nodeTokens[l - 1].token === Tokenizer.EToken.WHITESPACE || nodeTokens[l - 1].hasTrailingWhitespace()))
+					{
+						this._extensionName = toStringNormalize(tokens);
+						this._media = new ComponentValueList(<IComponentValue[]> children.slice(i + 1));
+						break;
+					}
 				}
 			}
 		}
@@ -3475,35 +3481,93 @@ export class AtNamespace extends AtRule
 				new Tokenizer.Token(Tokenizer.EToken.SEMICOLON, new SourceRange(), ';')
 		);
 
-		var prelude = this.getPrelude(),
-			first: ComponentValue,
-			second: ComponentValue;
-
-		this._url = '';
-		this._prefix = '';
-
-		if (prelude)
-		{
-			first = prelude[0];
-			if (prelude.getLength() === 1)
-				this._url = first.getValue();
-			else if (prelude.getLength() > 1)
-			{
-				this._prefix = first.getValue();
-				second = prelude[1];
-				this._url = second.getValue();
-			}
-		}
+		this._url = null;
+		this._prefix = null;
 	}
 
 	getUrl(): string
 	{
+		if (this._url === null)
+			this.getPrefixAndUrl();
 		return this._url;
 	}
 
 	getPrefix(): string
 	{
+		if (this._prefix === null)
+			this.getPrefixAndUrl();
 		return this._prefix;
+	}
+
+	private getPrefixAndUrl(): void
+	{
+		var prelude = this.getPrelude(),
+			len: number,
+			i: number,
+			first: ComponentValue,
+			children: T.INode[],
+			child: T.INode,
+			isUrl = true,
+			t: Tokenizer.Token,
+			token: Tokenizer.EToken,
+			tokens: Tokenizer.Token[];
+
+		if (prelude)
+		{
+			len = prelude.getLength();
+			first = prelude[0];
+			if (len === 1)
+			{
+				this._prefix = '';
+				this._url = first.getValue();
+			}
+			else if (len > 1)
+			{
+				// set the prefix
+				this._prefix = first.getValue();
+
+				// find the URL
+
+				// check if the rest of the prelude is a single URL
+				children = prelude.getChildren();
+				len = children.length;
+
+				for (i = 1; i < len; i++)
+				{
+					child = children[i];
+
+					// not a single URL if a child isn't a ComponentValue
+					if (!(child instanceof ComponentValue) || this._url !== null)
+					{
+						isUrl = false;
+						break;
+					}
+
+					// check that tokens of the ComponentValue are either URLs or whitespaces
+					t = (<ComponentValue> child).getToken();
+					token = t.token;
+					if (token !== Tokenizer.EToken.URL && token !== Tokenizer.EToken.WHITESPACE)
+					{
+						isUrl = false;
+						break;
+					}
+
+					// set the URL if an URL token was encountered
+					if (token === Tokenizer.EToken.URL)
+						this._url = (<ComponentValue> child).getValue();
+				}
+
+				// concat the rest of the prelude if it wasn't a single URL
+				if (!isUrl)
+				{
+					tokens = [];
+					for (i = 1; i < len; i++)
+						tokens = tokens.concat(children[i].getTokens());
+
+					this._url = toStringNormalize(tokens);
+				}
+			}
+		}
 	}
 }
 
