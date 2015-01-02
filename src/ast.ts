@@ -1108,7 +1108,7 @@ export class RuleList extends ASTNodeList<AbstractRule>
 		this.deleteNode(pos);
 	}
 
-	deleteAllRules()
+	deleteAllRules(): void
 	{
 		this.deleteAllNodes();
 	}
@@ -1848,6 +1848,16 @@ export class SimpleSelector<U extends T.INode> extends ASTNode implements ICompo
 			this.range.endLine = t.range.endLine;
 			this.range.endColumn = t.range.endColumn;
 		}
+	}
+
+	getNamespace(): Tokenizer.Token
+	{
+		return this._namespace;
+	}
+
+	getPipe(): Tokenizer.Token
+	{
+		return this._pipe;
 	}
 
 	getChildren(): T.INode[]
@@ -2663,7 +2673,7 @@ export class Declaration extends ASTNode
 		return this._text;
 	}
 
-	setText(newText: string)
+	setText(newText: string): void
 	{
 		var declaration: Declaration = Parser.parseDeclaration(newText),
 			root = this.getRoot();

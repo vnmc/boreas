@@ -327,7 +327,7 @@ function isSignificantWhitespace(t1: Token, t2: Token): boolean
 
 export class Token implements T.INode
 {
-	token: number;
+	token: EToken;
 	src: string;
 	value: any;
 	unit: string;

@@ -192,7 +192,6 @@ export class Parser
 	 * Parses a list of rules.
 	 *
 	 * @param isBlock If set to true, it is expected that the rules are enclosed in curly braces
-	 * @param isTopLevel If set to true, the source to parse can contain CDO and CDC tokens.
 	 *
 	 * @returns {AST.RuleList}
 	 */
