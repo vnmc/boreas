@@ -227,8 +227,8 @@ This _enum_ defines the token types. The following enum values are defined (in a
 
 Properties            | Description
 --------------------- | ------------------------
-```IDENT```           | an identifier token_
-```FUNCTION```        | a function token, i.e., an identifier followed by an opening parenthesis, "("_
+```IDENT```           | an identifier token
+```FUNCTION```        | a function token, i.e., an identifier followed by an opening parenthesis, "("
 ```AT_KEYWORD```      | an at-keyword, i.e., a identifier preceded by the at character, "@"
 ```HASH```            | a hash, i.e., an identifier preceded by the hash character, "#"
 ```STRING```          | a string
@@ -768,7 +768,7 @@ Properties/Methods | Description
 
 #### AtNamespace
 
-Extends [```AtRule```](#AtRule).
+Extends [```AtRule```](#atrule).
 
 This class represents an ```@namespace``` rule.
 
@@ -783,7 +783,7 @@ In this example, "svg" is the (optional) namespace prefix, followed by the names
 
 Properties/Methods | Description
 --- | ---
-```constructor(atKeyword: Token, prelude: ComponentValueList, semicolon: Token)``` | Constructs an ```AtNamespace``` object from an at-keyword token with the source "@namespace", a prelude comprising an identifier token for the namespace prefix (optional) and a string token for the namespace URL, and a semicolon token.
+```constructor(atKeyword: [Token](#token), prelude: ComponentValueList, semicolon: Token)``` | Constructs an ```AtNamespace``` object from an at-keyword token with the source "@namespace", a prelude comprising an identifier token for the namespace prefix (optional) and a string token for the namespace URL, and a semicolon token.
 ```constructor(url: string, prefix?: string)``` | Constructs an ```AtNamespace``` object from a namespace URL and an optional namespace prefix.
 ```getUrl: () => string``` | Returns the namespace URL.
 ```getPrefix: () => string``` | Returns the namespace prefix if there is one.
