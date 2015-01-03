@@ -282,12 +282,12 @@ Properties/Methods | Description
 --- | ---
 `token: `[`EToken`](#etoken) | The token type.
 `src: string` | The original source string.
-`value: any` | The token's value, if applicable. The value is defined for the following token types: `AT_KEYWORD` (the identifier after the "@"), `BAD_STRING` (the string without the enclosing quotes), `DIMENSION` (the numeric value as a number), `FUNCTION` (the function name), `HASH` (the identifier after the "#"), `NUMBER` (the numeric value as a number), `PERCENTAGE` (the numberic value as a number), `STRING` (the string without the enclosing quotes), `URL` (the URL string without the "url(", ")").
+`value: any` | The token's value, if applicable. The value is defined for the following token types: <ul><li>`AT_KEYWORD` (the identifier after the "@"),</li><li>`BAD_STRING` (the string without the enclosing quotes),</li><li>`DIMENSION` (the numeric value as a number),</li><li>`FUNCTION` (the function name),</li><li>`HASH` (the identifier after the "#"),</li><li>`NUMBER` (the numeric value as a number),</li><li>`PERCENTAGE` (the numberic value as a number),</li><li>`STRING` (the string without the enclosing quotes),</li><li>`URL` (the URL string without the "url(", ")").</li></ul>
 `unit: string` | The token's unit, if available. The unit is defined for the token type `DIMENSION` and contains strings like "px", "em", etc.
 `type: string` |
 `start: number` | Defined for the token type `UNICODE_RANGE`. Contains the start of the unicode range.
 `end: number` | Defined for the token type `UNICODE_RANGE`. Contains the end of the unicode range.
-`range: `[`ISourceRange`](#isourcerange)`` | The range in which this token appears in the original source code
+`range: `[`ISourceRange`](#isourcerange) | The range in which this token appears in the original source code
 `leadingTrivia: `[`Token`](#token)`[]` | The leading trivia tokens (non-significant whitespaces and comments)
 `trailingTrivia: `[`Token`](#token)`[]` | The trailing trivia tokens (non-significant whitespaces and comments)
 `parent: `[`INode`](#inode) | The token's parent node
