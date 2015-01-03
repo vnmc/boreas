@@ -63,9 +63,9 @@ All the parse functions take, apart from the mandatory CSS source as first argum
 
 Properties | Description
 --- | ---
-```lineBase``` | the number of the first line, defaults to 0,
-```columnBase``` | the number of the first column, defaults to 0,
-```tokenizeComments``` | flag indicating whether start and end comment tokens should be parsed as individual tokens and the contents of the comment should also be parsed.
+```lineBase``` | The number of the first line, defaults to 0.
+```columnBase``` | The number of the first column, defaults to 0.
+```tokenizeComments``` | Flag indicating whether start and end comment tokens should be parsed as individual tokens and the contents of the comment should also be parsed.
 
 ### Unparsing
 
@@ -146,16 +146,16 @@ console.log(styleSheet.toString());
 
 Properties/Methods | Description
 --- | ---
-```constructor(src: string, options?: ITokenizerOptions)``` | 
+```constructor(src: string, options?: ITokenizerOptions)``` | Constructs a tokenizer for tokenizing the source ```src```. Optinonally, an options hash, as described below, can be passed.
 ```nextToken(): Token``` | Returns the next token in the token stream. Leading and trailing whitespaces and comments of a token are returned in the leadingTrivia and trailingTrivia properties of the token.
 
 ```ITokenizerOptions``` is a hash which can have the following properties:
 
 Properties | Description
 --- | ---
-```tokenizeComments?: boolean``` | 
-```lineBase?: number``` | 
-```columnBase?: number``` | 
+```lineBase?: number``` | The number of the first line, defaults to 0.
+```columnBase?: number``` | The number of the first column, defaults to 0.
+```tokenizeComments?: boolean``` | Flag indicating whether start and end comment tokens should be parsed as individual tokens and the contents of the comment should also be parsed.
 
 
 
@@ -163,7 +163,7 @@ Properties | Description
 
 Properties/Methods | Description
 --- | ---
-```constructor(src: string, options?: Tokenizer.ITokenizerOptions)``` | 
+```constructor(src: string, options?: ITokenizerOptions)``` | Constructs a new parser object for parsing the source ```src```. Optionally, an options hash (as described in the Tokenizer) can be passed.
 ```parseStyleSheet(): AST.StyleSheet``` | Parses a style sheet.
 ```parseRuleBlock(): AST.RuleList``` | Parses a block of rules, i.e., rules contained within curly braces, "{" (rules) "}".
 ```parseRuleList(isBlock?: boolean): AST.RuleList``` | Parses a list of rules. If ```isBlock``` is set to true, it is expected that the rules are enclosed in curly braces.
@@ -206,17 +206,17 @@ Extends ```INode```.
 
 Properties/Methods | Description
 --- | ---
-```getValue: () => string``` |
+```getValue: () => string``` | Returns a string representation of the component value.
 
 
 #### ISourceRange
 
 Properties/Methods | Description
 --- | ---
-```startLine: number``` |
-```startColumn: number``` |
-```endLine: number``` |
-```endColumn: number``` |
+```startLine: number``` | The start line of the token/AST node.
+```startColumn: number``` | The start column of the token/AST node.
+```endLine: number``` | The end line of the token/AST node.
+```endColumn: number``` | The end column (exclusive) of the token/AST node.
 
 Defined in types.ts.
 
@@ -276,15 +276,17 @@ Properties/Methods | Description
 
 #### Token
 
+This class represents a single token.
+
 Properties/Methods | Description
 --- | ---
-```token: EToken``` | The token type
-```src: string``` | The original source string
-```value: any``` | 
-```unit: string``` |
+```token: EToken``` | The token type.
+```src: string``` | The original source string.
+```value: any``` | The token's value, if applicable. The value is defined for the following token types: ```AT_KEYWORD``` (the identifier after the "@"), ```BAD_STRING``` (the string without the enclosing quotes), ```DIMENSION``` (the numeric value as a number), ```FUNCTION``` (the function name), ```HASH``` (the identifier after the "#"), ```NUMBER``` (the numeric value as a number), ```PERCENTAGE``` (the numberic value as a number), ```STRING``` (the string without the enclosing quotes), ```URL``` (the URL string without the "url(", ")").
+```unit: string``` | The token's unit, if available. The unit is defined for the token type ```DIMENSION``` and contains strings like "px", "em", etc.
 ```type: string``` |
-```start: number``` |
-```end: number``` |
+```start: number``` | Defined for the token type ```UNICODE_RANGE```. Contains the start of the unicode range.
+```end: number``` | Defined for the token type ```UNICODE_RANGE```. Contains the end of the unicode range.
 ```range: ISourceRange``` | The range in which this token appears in the original source code
 ```leadingTrivia: Token[]``` | The leading trivia tokens (non-significant whitespaces and comments)
 ```trailingTrivia: Token[]``` | The trailing trivia tokens (non-significant whitespaces and comments)
@@ -346,6 +348,8 @@ Properties/Methods | Description
 #### AbstractRule
 
 Extends ```ASTNode```.
+
+This class is the base class for ```Rule``` and ```AtRule```.
 
 Properties/Methods | Description
 --- | ---
@@ -494,50 +498,82 @@ Properties/Methods | Description
 
 Extends ```ASTNodeList<Declaration>```.
 
+This class encapsulates a list of declaration, optionally enclosed in curly braces.
+
 Properties/Methods | Description
 --- | ---
-```constructor(declarations: Declaration[], lbrace?: Token, rbrace?: Token)``` | 
-```getLBrace: () => Token``` | 
-```getRBrace: () => Token``` | 
-```insertDeclaration: (declaration: Declaration, pos?: number) => void``` | 
-```deleteDeclaration: (pos: number) => void``` | 
-```deleteAllDeclarations: () => void``` | 
+```constructor(declarations: Declaration[], lbrace?: Token, rbrace?: Token)``` | Constructs a ```DeclarationList``` from an array of declarations and optional opening and closing curly brace tokens.
+```getLBrace: () => Token``` | Returns the opening curly brace if there is one.
+```getRBrace: () => Token``` | Returns the closing curly brace if there is one.
+```insertDeclaration: (declaration: Declaration, pos?: number) => void``` | Inserts a new declaration into the list. If the ```pos``` argument isn't specified, the new declaration will be appended to the list.
+```deleteDeclaration: (pos: number) => void``` | Deletes the declaration at position ```pos``` from this list.
+```deleteAllDeclarations: () => void``` | Removes all declarations from this list.
 
 #### Declaration
 
 Extends ```ASTNode```.
 
+This class encapsulates a declaration (e.g., a CSS propery).
+
+Example:
+
+```css
+h1 {
+	color: red;
+	border: 1px solid yellow !important;
+	/* padding: 0; */
+}
+```
+
+In this example, "color: red;" and "border: 1px solid yellow !important;" are represented by ```Declarations```.
+
+The parser also supports _disabled_ declarations, i.e., declarations which are commented out like "/* padding: 0; */" in the example. I.e., the parser will also parse such declarations and set the "disabled" flag to ```true```.
+
 Properties/Methods | Description
 --- | ---
-```constructor(name: ComponentValueList, colon: Token, value: DeclarationValue, semicolon: Token, lcomment?: Token, rcomment?: Token)``` | 
-```constructor(name: string, value: string, important?: boolean, disabled?: boolean)``` | 
-```getName: () => ComponentValueList``` | 
-```getNameAsString: () => string``` | 
-```setName: (newName: string) => void``` | 
-```getColon: () => Token``` | 
-```getValue: () => DeclarationValue``` | 
-```getValueAsString: (excludeImportant?: boolean) => string``` | 
-```setValue: (newValue: string) => void``` | 
-```getSemicolon: () => Token``` | 
-```getLComment: () => Token``` | 
-```getRComment: () => Token``` | 
-```getDisabled: () => boolean``` | 
-```setDisabled: (isDisabled: boolean) => void``` | 
-```getImportant: () => boolean``` | 
-```getText: () => string``` | 
-```setText: (newText: string) => void``` | 
+```constructor(name: ComponentValueList, colon: Token, value: DeclarationValue, semicolon: Token, lcomment?: Token, rcomment?: Token)``` | Constructs a ```Declaration``` from a name ("color" and "border" in the above example), a colon token, a declaration value (representing "red" and "1px solid yellow !important" in the example), and a semicolon token. If the declaration is disabled, the ```lcomment``` and ```rcomment``` tokens are delimiter tokens with sources "/\*" and "\*/", respectively.
+```constructor(name: string, value: string, important?: boolean, disabled?: boolean)``` | Constructs a ```DeclarationValue``` from a name, a value, an optional flag if this declaration has an appended ```!important``` and an optional flag if this declaration is disabled (i.e., commented out).
+```getName: () => ComponentValueList``` | Return the name ("color", "border", or "padding" in the above example).
+```getNameAsString: () => string``` | Returns the name as a string.
+```setName: (newName: string) => void``` | Replaces the declaration's name by ```newName```.
+```getColon: () => Token``` | Returns the colon token.
+```getValue: () => DeclarationValue``` | Returns the declaration's value.
+```getValueAsString: (excludeImportant?: boolean) => string``` | Returns the declarations' value as a string.
+```setValue: (newValue: string) => void``` | Replaces the declaration's value by ```newValue```.
+```getSemicolon: () => Token``` | Returns the semicolon token.
+```getLComment: () => Token``` | Returns the opening comment delimiter token, if this is a disabled declaration.
+```getRComment: () => Token``` | Returns the closing comment delimiter token, if this is a disabled declaration.
+```getDisabled: () => boolean``` | Returns ```true``` iff this declaration is disabled.
+```setDisabled: (isDisabled: boolean) => void``` | Enables/disables this declaration (i.e., removes/adds comment tokens).
+```getImportant: () => boolean``` | Returns ```true``` iff the declaration's value contains ```!important```.
+```getText: () => string``` | Returns a textual representation of the declaration.
+```setText: (newText: string) => void``` | Parses ```newText``` and replaces the current declaration with the result.
 
 #### DeclarationValue
 
 Extends ```ComponentValueList```.
 
+This class encapsulates the value part of a declaration (e.g., a property).
+
+Example:
+
+```css
+h1 {
+	color: red;
+	border: 1px solid yellow !important;
+}
+```
+
+In this example, "red" and "1px solid yellow !important" are represented by ```DeclarationValue```s.
+
 Properties/Methods | Description
 --- | ---
-```constructor(values: IComponentValue[])``` | 
-```getText: (excludeImportant?: boolean) => string``` | 
-```setText: (value: string) => void``` | 
-```getImportant: () => boolean``` | 
+```constructor(values: IComponentValue[])``` | Constructs a new ```DeclarationValue``` from an array of component values.
+```getText: (excludeImportant?: boolean) => string``` | Returns a textual representation of the value.
+```setText: (value: string) => void``` | Replaces the old value by the components contained in ```value``` after parsing the string.
+```getImportant: () => boolean``` | Returns true iff the value contains ```!important```.
 
+[AtRule]: AtRule
 #### AtRule
 
 Extends ```AbstractRule```.
@@ -546,12 +582,12 @@ This class encapsulates a generic @rule and is the base class for all the specia
 
 Properties/Methods | Description
 --- | ---
-```constructor(atKeyword: Token, prelude?: ComponentValueList, blockOrSemicolon?: INode)``` | 
+```constructor(atKeyword: Token, prelude?: ComponentValueList, blockOrSemicolon?: INode)``` | Constructs an ```AtRule``` from a (possibly vendor-prefixed) at-keyword token, a prelude (i.e., the part between the at-keyword and the body of the rule or the semicolon if the rule doesn't have a body), and its body (or the semicolon token if there is no body).
 ```getAtKeyword: () => Token``` | Returns the at-keyword token.
 ```getPrelude: () => ComponentValueList``` | Returns the rule's prelude.
-```getDeclarations: () => DeclarationList``` | Returns the rule's list of declarations
-```getRules: () => RuleList``` | 
-```getSemicolon: () => Token``` | 
+```getDeclarations: () => DeclarationList``` | Returns the rule's list of declarations if this @rule has a body of declarations (e.g., ```@font-face``` or ```@page```).
+```getRules: () => RuleList``` | Returns the rule's list of rules if this @rule has a body of rules (e.g., ```@media``` or ```@supports```).
+```getSemicolon: () => Token``` | Returns the semicolon token if this @rule has no body (e.g., ```@charset```, ```@import```, or ```@namespace```).
 
 #### AtCharset
 
@@ -567,9 +603,9 @@ Example:
 
 Properties/Methods | Description
 --- | ---
-```constructor(atKeyword: Token, prelude: ComponentValueList, semicolon: Token)``` | 
-```constructor(charset: string)``` | 
-```getCharset: () => string``` | 
+```constructor(atKeyword: Token, prelude: ComponentValueList, semicolon: Token)``` | Constructs an ```AtCharset``` object from an at-keyword token with the source "@charset", a prelude, which is a string token representing the character encoding, and a semicolon token.
+```constructor(charset: string)``` | Constructs an ```AtCharset``` object with the character encoding specified.
+```getCharset: () => string``` | Returns the charset.
 
 #### AtCustomMedia
 
@@ -584,7 +620,7 @@ Example:
 
 Properties/Methods | Description
 --- | ---
-```constructor(atKeyword: Token, prelude: ComponentValueList, semicolon: Token)``` | 
+```constructor(atKeyword: Token, prelude: ComponentValueList, semicolon: Token)``` | Constructs an ```AtCustomMedia``` object from an at-keyword token with the source "@custom-media" (possibly vendor-prefixed), a prelude XXXXX, and a semicolon token.
 ```constructor(extensionName: string, media: string)``` | 
 ```getExtensionName: () => string``` | 
 ```getMedia: () => ComponentValueList``` | 
@@ -599,28 +635,27 @@ Example:
 
 ```css
 @-moz-document url(http://localhost), domain(localhost), regexp("https:.*") {
-	/*
-	 * CSS rules here apply to:
-	 * - The page "http://www.w3.org/".
-	 * - Any page whose URL begins with "http://www.w3.org/Style/"
-	 * - Any page whose URL's host is "mozilla.org" or ends with ".mozilla.org"
-	 * - Any page whose URL starts with "https:"
-	 */
-
 	body {
 		background: yellow;
 	}
 }
 ```
 
+In this example, the CSS rules within the ```@document``` rule applies to
+
+* the page "http://www.w3.org/",
+* any page whose URL begins with "http://www.w3.org/Style/",
+* any page whose URL's host is "mozilla.org" or ends with ".mozilla.org",
+* any page whose URL starts with "https:".
+
 Properties/Methods | Description
 --- | ---
-```constructor(atKeyword: Token, prelude: ComponentValueList, block: RuleList)``` | 
-```constructor(prelude: string, rules: RuleList)``` | 
-```getUrl: () => string``` | 
-```getUrlPrefix: () => string``` | 
-```getDomain: () => string``` | 
-```getRegexp: () => string``` | 
+```constructor(atKeyword: Token, prelude: ComponentValueList, block: RuleList)``` | Constructs an ```AtDocument``` from an at-keyword token with the source "@document" (might be vendor-prefixed), a prelude containing URL tokens and function invocations, and a list of rules.
+```constructor(prelude: string, rules: RuleList)``` | Constructs an ```AtDocument``` from a prelude string and a list of rules.
+```getUrl: () => string``` | Returns the URL if there is one.
+```getUrlPrefix: () => string``` | Returns the URL prefix if there is one.
+```getDomain: () => string``` | Returns the domain if there is one.
+```getRegexp: () => string``` | Returns the Regexp if there is one.
 
 #### AtFontFace
 
@@ -642,8 +677,8 @@ Example:
 
 Properties/Methods | Description
 --- | ---
-```constructor(atKeyword: Token, prelude: ComponentValueList, declarations: DeclarationList)``` | 
-```constructor(declarations: DeclarationList)``` | 
+```constructor(atKeyword: Token, prelude: ComponentValueList, declarations: DeclarationList)``` | Constructs an ```AtFontFace``` object from an at-keyword with the source "@font-face", an (empty) prelude, and a list of declarations.
+```constructor(declarations: DeclarationList)``` | Constructs an ```AtFontFace``` object from a list of declarations.
 
 #### AtHost
 
@@ -676,10 +711,10 @@ Example:
 
 Properties/Methods | Description
 --- | ---
-```constructor(atKeyword: Token, prelude: ComponentValueList, semicolon: Token)``` | 
-```constructor(url: string, media?: string)``` | 
-```getUrl: () => string``` | 
-```getMedia: () => ComponentValueList``` | 
+```constructor(atKeyword: Token, prelude: ComponentValueList, semicolon: Token)``` | Constructs an ```AtImport``` object from an at-keyword token with the source "@import", a prelude containing the reference to the imported stylesheet (either as a string or a URL token), and a semicolon token.
+```constructor(url: string, media?: string)``` | Constructs an ```AtImport``` object from a URL (the stylesheet to import) and an optional media string.
+```getUrl: () => string``` | Returns the URL of the imported stylesheet.
+```getMedia: () => ComponentValueList``` | Returns the media if defined.
 
 #### AtKeyframes
 
@@ -690,13 +725,13 @@ This class represents an ```@keyframes``` rule.
 Example:
 
 ```css
-@-webkit-keyframes idleimage {
+@-webkit-keyframes moving-image {
 	0%   { background-position: 0; }
 	50%  { background-position: 100%; }
 	100% { background-position: 0; }
 }
 
-@-moz-keyframes idleimage {
+@-moz-keyframes moving-image {
 	0%   { background-position: 0; }
 	50%  { background-position: 100%; }
 	100% { background-position: 0; }
@@ -705,9 +740,9 @@ Example:
 
 Properties/Methods | Description
 --- | ---
-```constructor(atKeyword: Token, prelude: ComponentValueList, rules: RuleList)``` | 
-```constructor(animationName: string, rules: RuleList)``` | 
-```getAnimationName: () => string``` | 
+```constructor(atKeyword: Token, prelude: ComponentValueList, rules: RuleList)``` | Constructs an ```AtKeyframes``` object from a (possibly vendor-prefixed) at-keyword token, a prelude containing a single identifier token (the name of the animation), and a list of rules.
+```constructor(animationName: string, rules: RuleList)``` | Constructs an ```AtKeyframes``` object from an animation name and a list of rules.
+```getAnimationName: () => string``` | Returns the animation name.
 
 #### AtMedia
 
@@ -727,13 +762,13 @@ Example:
 
 Properties/Methods | Description
 --- | ---
-```constructor(atKeyword: Token, media: ComponentValueList, rules: RuleList)``` | 
-```constructor(media: string, rules: RuleList)``` | 
-```getMedia: () => ComponentValueList``` | 
+```constructor(atKeyword: Token, media: ComponentValueList, rules: RuleList)``` | Constracts an ```AtMedia``` object from an at-keyword token with the source "@media", the media list (the component values making up ```screen and (min-width: 800px)``` in the above example), and a list of rules.
+```constructor(media: string, rules: RuleList)``` | Constructs an ```AtMedia``` object from a media string (e.g., "screen and (min-width: 800px)") and a list of rules.
+```getMedia: () => ComponentValueList``` | Returns the media list.
 
 #### AtNamespace
 
-Extends ```AtRule```.
+Extends [```AtRule```](#AtRule).
 
 This class represents an ```@namespace``` rule.
 
@@ -742,6 +777,9 @@ Example:
 ```css
 @namespace svg "http://www.w3.org/2000/svg";
 ```
+
+In this example, "svg" is the (optional) namespace prefix, followed by the namespace URL.
+
 
 Properties/Methods | Description
 --- | ---
