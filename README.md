@@ -357,7 +357,7 @@ Properties/Methods | Description
 
 #### RuleList
 
-Extends [`ASTNodeList`](#astnodelist)`<`[`AbstractRule`](#abstractrule)`>`.
+Extends [`ASTNodeList`](#astnodelistu-extends-inode)`<`[`AbstractRule`](#abstractrule)`>`.
 
 Properties/Methods | Description
 --- | ---
@@ -391,7 +391,7 @@ Properties/Methods | Description
 
 #### SelectorList
 
-Extends [`ASTNodeList`](#astnodelist)`<`[`Selector`](#selector)`>`.
+Extends [`ASTNodeList`](#astnodelistu-extends-inode)`<`[`Selector`](#selector)`>`.
 
 Properties/Methods | Description
 --- | ---
@@ -437,7 +437,7 @@ Properties/Methods | Description
 
 #### TypeSelector
 
-Extends [`SimpleSelector`](#simpleselector)`<`[`Token`](#token)`>`.
+Extends [`SimpleSelector`](#simpleselectoru-extends-inode)`<`[`Token`](#token)`>`.
 
 Properties/Methods | Description
 --- | ---
@@ -447,7 +447,7 @@ Properties/Methods | Description
 
 #### UniversalSelector
 
-Extends [`SimpleSelector`](#simpleselector)`<`[`Token`](#token)`>`.
+Extends [`SimpleSelector`](#simpleselectoru-extends-inode)`<`[`Token`](#token)`>`.
 
 Properties/Methods | Description
 --- | ---
@@ -457,7 +457,7 @@ Properties/Methods | Description
 
 #### AttributeSelector
 
-Extends [`SimpleSelector`](#simpleselector)`<`[`BlockComponentValue`](#blockcomponentvalue)`>`.
+Extends [`SimpleSelector`](#simpleselectoru-extends-inode)`<`[`BlockComponentValue`](#blockcomponentvalue)`>`.
 
 Properties/Methods | Description
 --- | ---
@@ -465,7 +465,7 @@ Properties/Methods | Description
 
 #### ClassSelector
 
-Extends [`SimpleSelector`](#simpleselector)`<`[`Token`](#token)`>`.
+Extends [`SimpleSelector`](#simpleselectoru-extends-inode)`<`[`Token`](#token)`>`.
 
 Properties/Methods | Description
 --- | ---
@@ -476,7 +476,7 @@ Properties/Methods | Description
 
 #### IDSelector
 
-Extends [`SimpleSelector`](#simpleselector)`<`[`Token`](#token)`>`. 
+Extends [`SimpleSelector`](#simpleselectoru-extends-inode)`<`[`Token`](#token)`>`. 
 
 Properties/Methods | Description
 --- | ---
@@ -496,7 +496,7 @@ Properties/Methods | Description
 
 #### DeclarationList
 
-Extends [`ASTNodeList`](#astnodelist)`<`[`Declaration`](#declaration)`>`.
+Extends [`ASTNodeList`](#astnodelistu-extends-inode)`<`[`Declaration`](#declaration)`>`.
 
 This class encapsulates a list of declaration, optionally enclosed in curly braces.
 
@@ -851,7 +851,7 @@ Properties/Methods | Description
 
 #### ComponentValueList
 
-Extends [`ASTNodeList`](#astnodelist).
+Extends [`ASTNodeList`](#astnodelistu-extends-inode).
 
 This class encapsulates a sequence of [`ComponentValue`](#componentvalue)s.
 
