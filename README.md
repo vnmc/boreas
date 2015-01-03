@@ -783,7 +783,7 @@ In this example, "svg" is the (optional) namespace prefix, followed by the names
 
 Properties/Methods | Description
 --- | ---
-```constructor(atKeyword: [Token](#token), prelude: ComponentValueList, semicolon: Token)``` | Constructs an ```AtNamespace``` object from an at-keyword token with the source "@namespace", a prelude comprising an identifier token for the namespace prefix (optional) and a string token for the namespace URL, and a semicolon token.
+```constructor(atKeyword: ```[```Token```](#token)```, prelude: ```[```ComponentValueList```](#componentvaluelist)```, semicolon: ```[```Token```](#token)```)``` | Constructs an ```AtNamespace``` object from an at-keyword token with the source "@namespace", a prelude comprising an identifier token for the namespace prefix (optional) and a string token for the namespace URL, and a semicolon token.
 ```constructor(url: string, prefix?: string)``` | Constructs an ```AtNamespace``` object from a namespace URL and an optional namespace prefix.
 ```getUrl: () => string``` | Returns the namespace URL.
 ```getPrefix: () => string``` | Returns the namespace prefix if there is one.
