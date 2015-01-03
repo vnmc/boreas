@@ -164,19 +164,19 @@ Properties | Description
 Properties/Methods | Description
 --- | ---
 `constructor(src: string, options?: ITokenizerOptions)` | Constructs a new parser object for parsing the source `src`. Optionally, an options hash (as described in the Tokenizer) can be passed.
-`parseStyleSheet(): StyleSheet` | Parses a style sheet.
+`parseStyleSheet(): `[`StyleSheet`](#stylesheet) | Parses a style sheet.
 `parseRuleBlock(): `[`RuleList`](#rulelist) | Parses a block of rules, i.e., rules contained within curly braces, "{" (rules) "}".
 `parseRuleList(isBlock?: boolean): `[`RuleList`](#rulelist) | Parses a list of rules. If `isBlock` is set to true, it is expected that the rules are enclosed in curly braces.
 `parseQualifiedRule(): `[`Rule`](#rule) | Parses a qualified rule.
 `parseAtRule(): `[`AtRule`](#atrule) | Parses an (arbitrary) @rule.
 `parseDeclarationList(): `[`DeclarationList`](#declarationlist) | Parses a list of declarations (e.g., properties).
-`parseDeclaration(throwErrors: boolean = true, omitSemicolon?: boolean): Declaration` | Parses a single declaration.
-`parseTrailingTokensForDisabledDeclarations(token: `[`Token`](#token)`): Declaration[]` | Parses the trailing tokens of the current token for disabled declarations (declarations which are commented out in the source code).
-`parseDisabledDeclaration(token: `[`Token`](#token)`, throwErrors: boolean = true): Declaration` | Parses a single disabled (i.e., commented out) declaration.
-`parseDeclarationValue(): DeclarationValue` | Parses a declaration value (i.e., the part that comes after the ":" in a declaration).
+`parseDeclaration(throwErrors: boolean = true, omitSemicolon?: boolean): `[`Declaration`](#declaration) | Parses a single declaration.
+`parseTrailingTokensForDisabledDeclarations(token: `[`Token`](#token)`): `[`Declaration`](#declaration)[]` | Parses the trailing tokens of the current token for disabled declarations (declarations which are commented out in the source code).
+`parseDisabledDeclaration(token: `[`Token`](#token)`, throwErrors: boolean = true): `[`Declaration`](#declaration) | Parses a single disabled (i.e., commented out) declaration.
+`parseDeclarationValue(): `[`DeclarationValue`](#declarationvalue) | Parses a declaration value (i.e., the part that comes after the ":" in a declaration).
 `parseSelectorList(): `[`SelectorList`](#selectorlist) | Parses a list of selectors.
 `parseSelector(): `[`Selector`](#selector) | Parses a single selector.
-`parseComponentValueList(...endTokens: EToken[]): ComponentValue[]` | Parses a list of component values.
+`parseComponentValueList(...endTokens: `[`EToken`](#etoken)`[]): `[`ComponentValue`](#componentvalue)`[]` | Parses a list of component values.
 `parseBlock(): `[`BlockComponentValue`](#blockcomponentvalue) | Parses a block component value (any block enclosed in parentheses, square brackets, or curly braces).
 `parseFunction(): `[`FunctionComponentValue`](#functioncomponentvalue) | Parses a function.
 
@@ -280,7 +280,7 @@ This class represents a single token.
 
 Properties/Methods | Description
 --- | ---
-`token: EToken` | The token type.
+`token: `[`EToken`](#etoken) | The token type.
 `src: string` | The original source string.
 `value: any` | The token's value, if applicable. The value is defined for the following token types: `AT_KEYWORD` (the identifier after the "@"), `BAD_STRING` (the string without the enclosing quotes), `DIMENSION` (the numeric value as a number), `FUNCTION` (the function name), `HASH` (the identifier after the "#"), `NUMBER` (the numeric value as a number), `PERCENTAGE` (the numberic value as a number), `STRING` (the string without the enclosing quotes), `URL` (the URL string without the "url(", ")").
 `unit: string` | The token's unit, if available. The unit is defined for the token type `DIMENSION` and contains strings like "px", "em", etc.
@@ -335,7 +335,7 @@ Properties/Methods | Description
 
 #### StyleSheet
 
-Extends `[`ASTNode`](#astnode)`.
+Extends [`ASTNode`](#astnode).
 
 Properties/Methods | Description
 --- | ---
@@ -409,7 +409,7 @@ Extends [`ComponentValueList`](#componentvaluelist).
 
 Properties/Methods | Description
 --- | ---
-`constructor(values: IComponentValue[], separator?: `[`Token`](#token)`)` | 
+`constructor(values: `[`IComponentValue`](#icomponentvalue)`[], separator?: `[`Token`](#token)`)` | 
 `constructor(selectorText: string)` | 
 `getText: () => string` | 
 `setText: (newText: string) => void` | 
@@ -425,7 +425,7 @@ Properties/Methods | Description
 
 #### SimpleSelector\<U extends [INode](#inode)>
 
-Extends [`ASTNode`](#astnode), implements `IComponentValue`.
+Extends [`ASTNode`](#astnode), implements [`IComponentValue`](#icomponentvalue).
 
 This class is the base class for the specialized selector classes described below.
 
@@ -486,13 +486,13 @@ Properties/Methods | Description
 
 #### PseudoClass
 
-Extends [`ASTNode`](#astnode), implements `IComponentValue`.
+Extends [`ASTNode`](#astnode), implements [`IComponentValue`](#icomponentvalue).
 
 Properties/Methods | Description
 --- | ---
-`constructor(colon1: `[`Token`](#token)`, colon2: `[`Token`](#token)`, pseudoClassName: IComponentValue)` | 
+`constructor(colon1: `[`Token`](#token)`, colon2: `[`Token`](#token)`, pseudoClassName: `[`IComponentValue`](#icomponentvalue)`)` | 
 `constructor(pseudoClass: string)` | 
-`getPseudoClassName: () => IComponentValue` | 
+`getPseudoClassName: () => `[`IComponentValue`](#icomponentvalue) | 
 
 #### DeclarationList
 
@@ -568,7 +568,7 @@ In this example, "red" and "1px solid yellow !important" are represented by `Dec
 
 Properties/Methods | Description
 --- | ---
-`constructor(values: IComponentValue[])` | Constructs a new `DeclarationValue` from an array of component values.
+`constructor(values: `[`IComponentValue`](#icomponentvalue)`[])` | Constructs a new `DeclarationValue` from an array of component values.
 `getText: (excludeImportant?: boolean) => string` | Returns a textual representation of the value.
 `setText: (value: string) => void` | Replaces the old value by the components contained in `value` after parsing the string.
 `getImportant: () => boolean` | Returns true iff the value contains `!important`.
@@ -847,7 +847,7 @@ Properties/Methods | Description
 `constructor(token?: `[`Token`](#token)`)` | Constructs a new `ComponentValue`.
 `getToken: () => `[`Token`](#token) | Returns the encapsulated token.
 `getValue: () => string` | Returns the value.
-`getType: () => EToken` | Returns the type of the token.
+`getType: () => `[`EToken`](#etoken) | Returns the type of the token.
 
 #### ComponentValueList
 
@@ -857,7 +857,7 @@ This class encapsulates a sequence of [`ComponentValue`](#componentvalue)s.
 
 Properties/Methods | Description
 --- | ---
-`constructor(values: IComponentValue[])` | Constructs a new `ComponentValueList`.
+`constructor(values: `[`IComponentValue`](#icomponentvalue)`[])` | Constructs a new `ComponentValueList`.
 `getValue: () => string` | Returns the value as a string.
 
 #### BlockComponentValue
@@ -868,7 +868,7 @@ This class encapsulates a generic block, i.e., a portion of code starting with a
 
 Properties/Methods | Description
 --- | ---
-`constructor(startToken: `[`Token`](#token)`, endToken: `[`Token`](#token)`, values: IComponentValue[])` | Constructs a new block from a start and an end token and value tokens contained between the start and the end tokens.
+`constructor(startToken: `[`Token`](#token)`, endToken: `[`Token`](#token)`, values: `[`IComponentValue`](#icomponentvalue)`[])` | Constructs a new block from a start and an end token and value tokens contained between the start and the end tokens.
 `getStartToken: () => `[`Token`](#token) | Returns the start token.
 `getEndToken: () => `[`Token`](#token) | Returns the end token.
 
@@ -880,7 +880,7 @@ This class encapsulates a function invocation, e.g., `rgb(10, 20, 30)`.
 
 Properties/Methods | Description
 --- | ---
-`constructor(name: `[`Token`](#token)`, rparen: `[`Token`](#token)`, args: IComponentValue[])` | Constructs a new `FunctionComponentValue` from a function token, the closing parenthesis and an array of function arguments.
+`constructor(name: `[`Token`](#token)`, rparen: `[`Token`](#token)`, args: `[`IComponentValue`](#icomponentvalue)`[])` | Constructs a new `FunctionComponentValue` from a function token, the closing parenthesis and an array of function arguments.
 `getName: () => `[`Token`](#token) | Returns the function token containing the function name (as per the W3C specification, the function token contains the name and the opening parenthesis.)
 `getArgs: () => `[`FunctionArgumentValue`](#functionargumentvalue)`[]` | Returns the array of function arguments.
 
@@ -892,7 +892,7 @@ This class represents an argument to a function, such as `10`, `,` in `rgb(10, 2
 
 Properties/Methods | Description
 --- | ---
-`constructor(values: IComponentValue[], separator?: `[`Token`](#token)`)` | Constructs a `FunctionArgumentValue` from an array of `IComponentValue`s.
+`constructor(values: `[`IComponentValue`](#icomponentvalue)`[], separator?: `[`Token`](#token)`)` | Constructs a `FunctionArgumentValue` from an array of [`IComponentValue`](#icomponentvalue)s.
 `getSeparator: () => `[`Token`](#token) | Returns the separator token (the comma) following the function argument, if there is one.
 
 #### ImportantComponentValue
