@@ -171,7 +171,7 @@ Properties/Methods | Description
 `parseAtRule(): `[`AtRule`](#atrule) | Parses an (arbitrary) @rule.
 `parseDeclarationList(): `[`DeclarationList`](#declarationlist) | Parses a list of declarations (e.g., properties).
 `parseDeclaration(throwErrors: boolean = true, omitSemicolon?: boolean): `[`Declaration`](#declaration) | Parses a single declaration.
-`parseTrailingTokensForDisabledDeclarations(token: `[`Token`](#token)`): `[`Declaration`](#declaration)[]` | Parses the trailing tokens of the current token for disabled declarations (declarations which are commented out in the source code).
+`parseTrailingTokensForDisabledDeclarations(token: `[`Token`](#token)`): `[`Declaration`](#declaration)[] | Parses the trailing tokens of the current token for disabled declarations (declarations which are commented out in the source code).
 `parseDisabledDeclaration(token: `[`Token`](#token)`, throwErrors: boolean = true): `[`Declaration`](#declaration) | Parses a single disabled (i.e., commented out) declaration.
 `parseDeclarationValue(): `[`DeclarationValue`](#declarationvalue) | Parses a declaration value (i.e., the part that comes after the ":" in a declaration).
 `parseSelectorList(): `[`SelectorList`](#selectorlist) | Parses a list of selectors.
@@ -194,8 +194,8 @@ Properties/Methods | Description
 `getChildren: () => `[`INode`](#inode)`[]` | Returns an array containing all the child nodes
 `isAncestorOf: (node: `[`INode`](#inode)`) => boolean` | Determines if this node is an ancestor of "node"
 `getTokens: () => `[`Token`](#token)`[]` | Returns an array containing all the tokens that this node spans
-`walk: (walker: IASTWalker) => any` | Walks the sub-tree using the tree walker "walker"_
-`hasError: () => boolean` | Returns `true` iff there was an error while parsing this node_
+`walk: (walker: `[`IASTWalker`](#iastwalker)`) => any` | Walks the sub-tree using the tree walker "walker"
+`hasError: () => boolean` | Returns `true` iff there was an error while parsing this node
 `toString: () => string` | Unparses this node and returns it's string representation (identical to the corresponding part of the input source code)
 
 Defined in types.ts.
@@ -225,8 +225,8 @@ Defined in types.ts.
 
 This _enum_ defines the token types. The following enum values are defined (in accordance with the W3C specification):
 
-Properties            | Description
---------------------- | ------------------------
+Properties        | Description
+----------------- | ------------------------
 `IDENT`           | an identifier token
 `FUNCTION`        | a function token, i.e., an identifier followed by an opening parenthesis, "("
 `AT_KEYWORD`      | an at-keyword, i.e., a identifier preceded by the at character, "@"
@@ -287,7 +287,7 @@ Properties/Methods | Description
 `type: string` |
 `start: number` | Defined for the token type `UNICODE_RANGE`. Contains the start of the unicode range.
 `end: number` | Defined for the token type `UNICODE_RANGE`. Contains the end of the unicode range.
-`range: ISourceRange` | The range in which this token appears in the original source code
+`range: `[`ISourceRange`](#isourcerange)`` | The range in which this token appears in the original source code
 `leadingTrivia: `[`Token`](#token)`[]` | The leading trivia tokens (non-significant whitespaces and comments)
 `trailingTrivia: `[`Token`](#token)`[]` | The trailing trivia tokens (non-significant whitespaces and comments)
 `parent: `[`INode`](#inode) | The token's parent node
@@ -306,7 +306,7 @@ Properties/Methods | Description
 `getParent: () => `[`INode`](#inode) | Returns the node's parent node.
 `getChildren: () => `[`INode`](#inode)`[]` | Returns an array of the node's children.
 `getTokens: () => `[`Token`](#token)`[]` | Returns all the tokens spanned by this node.
-`walk: (walker: IASTWalker) => any` | Walks the sub-tree using the AST walker `walker`.
+`walk: (walker: `[`IASTWalker`](#iastwalker)`) => any` | Walks the sub-tree using the AST walker `walker`.
 `hasError: () => boolean` | Returns `true` iff there was an error while parsing this node.
 `toString: () => string` | Unparses this node and returns it's string representation (identical to the corresponding part of the input source code).
 `errorTokensToString: () => string` | Returns the source code when there was an error while parsing this node.
@@ -329,7 +329,7 @@ Properties/Methods | Description
 `deleteNode(pos: number): void` | Deletes the node at position "pos". If there is no node at this position, no node is deleted.
 `deleteAllNodes(): void` | Deletes all nodes from the node list.
 `forEach(it: (elt: U) => void)` | Calls the function `it` on each element contained in the list.
-`walkChildren(walker: IASTWalker, result: any[] = []): any[]` | Walks the list's children using the AST walker `walker`.
+`walkChildren(walker: `[`IASTWalker`](#iastwalker)`, result: any[] = []): any[]` | Walks the list's children using the AST walker `walker`.
 
 
 
@@ -537,7 +537,7 @@ Properties/Methods | Description
 `getNameAsString: () => string` | Returns the name as a string.
 `setName: (newName: string) => void` | Replaces the declaration's name by `newName`.
 `getColon: () => `[`Token`](#token) | Returns the colon token.
-`getValue: () => DeclarationValue` | Returns the declaration's value.
+`getValue: () => `[`DeclarationValue`](#declarationvalue) | Returns the declaration's value.
 `getValueAsString: (excludeImportant?: boolean) => string` | Returns the declarations' value as a string.
 `setValue: (newValue: string) => void` | Replaces the declaration's value by `newValue`.
 `getSemicolon: () => `[`Token`](#token) | Returns the semicolon token.
