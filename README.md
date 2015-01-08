@@ -3,7 +3,7 @@ Boreas: A CSS Parser in TypeScript
 
 Boreas is a CSS parser written in TypeScript (which compiles to JavaScript). It can be used both in node.js projects and in the browser (work in progress).
 
-The project was done because we needed a reliable, robust CSS parser for Ghostlab (http://www.vanamco.com/ghostlab)
+The project was done because we needed a reliable, robust CSS parser for our synchronized Web testing tool [Ghostlab](http://www.vanamco.com/ghostlab).
 
 This project comprises
 
@@ -908,11 +908,8 @@ Properties/Methods | Description
 `getImportant: () => `[`Token`](#token) | Returns the "important" identifier.
 
 
+# License
 
+MIT
 
-
-
-
-
-
-
+Copyright (C) by [Vanamco AG](http://www.vanamco.com)
