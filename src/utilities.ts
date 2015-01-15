@@ -50,7 +50,7 @@ export function getLineStartIndices(text: string): number[]
 }
 
 
-export function getLineNumberFromPosition(pos: number, lineStartIndices: number[])
+export function getLineNumberFromPosition(pos: number, lineStartIndices: number[]): number
 {
 	for (var i = lineStartIndices.length - 1; i >= 0; i--)
 		if (pos >= lineStartIndices[i])
@@ -59,7 +59,7 @@ export function getLineNumberFromPosition(pos: number, lineStartIndices: number[
 }
 
 
-export function getColumnNumberFromPosition(pos: number, lineStartIndices: number[])
+export function getColumnNumberFromPosition(pos: number, lineStartIndices: number[]): number
 {
 	for (var i = lineStartIndices.length - 1; i >= 0; i--)
 	{
@@ -84,8 +84,11 @@ export function getIndexFromLineColumn(lineNumber: number, columnNumber: number,
 }
 
 
-export function copyRange(src: T.INode, dst: T.INode)
+export function copyRange(src: T.INode, dst: T.INode): void
 {
+	if (!src || !dst || !src.range || !dst.range)
+		return;
+
 	dst.range.startLine = src.range.startLine;
 	dst.range.startColumn = src.range.startColumn;
 	dst.range.endLine = src.range.endLine;
@@ -99,8 +102,11 @@ export function copyRange(src: T.INode, dst: T.INode)
  * @param range The range to update
  * @param insertRange The range to insert into "range"
  */
-export function insertRange(range: T.ISourceRange, insertRange: T.ISourceRange)
+export function insertRange(range: T.ISourceRange, insertRange: T.ISourceRange): void
 {
+	if (!range || !insertRange)
+		return;
+
 	var lineOffset = insertRange.endLine - insertRange.startLine;
 	var columnOffset = insertRange.endColumn - insertRange.startColumn;
 
@@ -133,8 +139,11 @@ export function insertRange(range: T.ISourceRange, insertRange: T.ISourceRange)
  * @param range The range to update
  * @param deleteRange The range to remove from "range"
  */
-export function deleteRange(range: T.ISourceRange, deleteRange: T.ISourceRange)
+export function deleteRange(range: T.ISourceRange, deleteRange: T.ISourceRange): void
 {
+	if (!range || !deleteRange)
+		return;
+
 	var lineSpan = deleteRange.endLine - deleteRange.startLine;
 
 	var oldStartLine = range.startLine;
@@ -202,6 +211,9 @@ export function deleteRange(range: T.ISourceRange, deleteRange: T.ISourceRange)
  */
 export function insertRangeFromNode(ast: T.INode, nodeModified: T.INode, offset?: T.ISourceRange): void
 {
+	if (!ast || !nodeModified)
+		return;
+
 	var range = offset === undefined ? nodeModified.range : offset;
 	var sl = range.startLine;
 	var sc = range.startColumn;
@@ -262,6 +274,9 @@ export function insertRangeFromNode(ast: T.INode, nodeModified: T.INode, offset?
 
 export function zeroRange(ast: T.INode, nodeModifiedOrRange: any): void
 {
+	if (!ast)
+		return;
+
 	var r : T.ISourceRange,
 		range: T.ISourceRange;
 
@@ -300,6 +315,9 @@ export function zeroRange(ast: T.INode, nodeModifiedOrRange: any): void
 
 export function updateNodeRange(ast: T.INode, nodeModified: T.INode, newRange: T.ISourceRange): void
 {
+	if (!nodeModified)
+		return;
+
 	zeroRange(ast, nodeModified);
 	nodeModified.range = newRange;
 	insertRangeFromNode(ast, nodeModified);
@@ -325,8 +343,11 @@ export function getRangeDifference(oldText: string, newText: string, oldRange: T
 }
 
 
-export function offsetRange(ast: T.INode, lineOffset: number, columnOffset: number)
+export function offsetRange(ast: T.INode, lineOffset: number, columnOffset: number): void
 {
+	if (!ast || !ast.range)
+		return;
+
 	var startLine = ast.range.startLine;
 
 	var offsetRecursive = function(node: T.INode)
