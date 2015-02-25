@@ -473,13 +473,13 @@ export class Parser
 			lcomment: Tokenizer.Token,
 			rcomment: Tokenizer.Token;
 
-		if (t.token === Tokenizer.EToken.DELIM && t.src === '/*')
+		if (t.token === Tokenizer.EToken.LCOMMENT)
 		{
 			lcomment = t;
 			this.nextToken();
 		}
 
-		nameValues = this.parseComponentValueList(Tokenizer.EToken.COLON, Tokenizer.EToken.SEMICOLON);
+		nameValues = this.parseComponentValueList(Tokenizer.EToken.COLON, Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.RCOMMENT);
 		name = nameValues && nameValues.length > 0 ? new AST.ComponentValueList(nameValues) : null;
 
 		// If the current input token is anything other than a <colon-token>,
@@ -507,7 +507,7 @@ export class Parser
 		if (!omitSemicolon)
 		{
 			t = this._currentToken;
-			if (t.token === Tokenizer.EToken.DELIM && t.src === '*/')
+			if (t.token === Tokenizer.EToken.RCOMMENT)
 			{
 				rcomment = t;
 				this.nextToken();
@@ -631,7 +631,7 @@ export class Parser
 	 */
 	parseDeclarationValue(): AST.DeclarationValue
 	{
-		var values = this.parseComponentValueList(Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.RBRACE);
+		var values = this.parseComponentValueList(Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.RBRACE, Tokenizer.EToken.RCOMMENT);
 		return values && values.length > 0 ? new AST.DeclarationValue(values) : null;
 	}
 

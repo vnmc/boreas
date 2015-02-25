@@ -51,6 +51,8 @@ export enum EToken
 	RPAREN,
 	LBRACE,
 	RBRACE,
+    LCOMMENT,
+    RCOMMENT,
 	EOF
 }
 
@@ -895,7 +897,7 @@ export class Tokenizer
 			else if (c === '/' && this._options.tokenizeComments)
 			{
 				this.nextChar();
-				return this.token(EToken.DELIM, '*/');
+				return this.token(EToken.RCOMMENT, '*/');
 			}
 
 			return this.token(EToken.DELIM);
@@ -953,7 +955,7 @@ export class Tokenizer
 				if (this._options.tokenizeComments)
 				{
 					this.nextChar();
-					return this.token(EToken.DELIM, '/*');
+					return this.token(EToken.LCOMMENT, '/*');
 				}
 
 				for ( ; ; )

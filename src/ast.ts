@@ -1714,7 +1714,14 @@ export class Selector extends ComponentValueList
 
 	setText(newText: string): void
 	{
-		this.replaceNodes(new Parser.Parser(newText).parseComponentValueList());
+        var values = new Parser.Parser(newText).parseComponentValueList();
+
+        if (values)
+		    this.replaceNodes(values);
+        else
+        {
+            // TODO: throw error?
+        }
 	}
 
 	getChildren(): T.INode[]
@@ -2493,8 +2500,8 @@ export class Declaration extends ASTNode
 				new Tokenizer.Token(Tokenizer.EToken.COLON, new SourceRange(), ':'),
 				new Parser.Parser(<string> args[1]).parseDeclarationValue(),
 				new Tokenizer.Token(Tokenizer.EToken.SEMICOLON, new SourceRange(), ';'),
-				disabled ? new Tokenizer.Token(Tokenizer.EToken.DELIM, new SourceRange(), '/*') : undefined,
-				disabled ? new Tokenizer.Token(Tokenizer.EToken.DELIM, new SourceRange(), '*/') : undefined
+				disabled ? new Tokenizer.Token(Tokenizer.EToken.LCOMMENT, new SourceRange(), '/*') : undefined,
+				disabled ? new Tokenizer.Token(Tokenizer.EToken.RCOMMENT, new SourceRange(), '*/') : undefined
 			);
 		}
 		else
@@ -2631,7 +2638,7 @@ export class Declaration extends ASTNode
 		{
 			// insert an "opening comment" token
 			this._lcomment = new Tokenizer.Token(
-				Tokenizer.EToken.DELIM,
+				Tokenizer.EToken.LCOMMENT,
 				new SourceRange(this.range.startLine, this.range.startColumn, this.range.startLine, this.range.startColumn + 2),
 				'/*'
 			);
@@ -2640,7 +2647,7 @@ export class Declaration extends ASTNode
 
 			// insert a "closing comment" token
 			this._rcomment = new Tokenizer.Token(
-				Tokenizer.EToken.DELIM,
+				Tokenizer.EToken.RCOMMENT,
 				new SourceRange(this.range.endLine, this.range.endColumn, this.range.endLine, this.range.endColumn + 2),
 				'*/'
 			);
@@ -2678,21 +2685,28 @@ export class Declaration extends ASTNode
 		var declaration: Declaration = Parser.parseDeclaration(newText),
 			root = this.getRoot();
 
-		Utilities.offsetRange(declaration, this.range.startLine, this.range.startColumn);
-		Utilities.zeroRange(root, this);
+        if (declaration)
+        {
+            Utilities.offsetRange(declaration, this.range.startLine, this.range.startColumn);
+            Utilities.zeroRange(root, this);
 
-		this.set(
-			declaration._name, declaration._colon, declaration._value, declaration._semicolon,
-			declaration._lcomment, declaration._rcomment
-		);
+            this.set(
+                declaration._name, declaration._colon, declaration._value, declaration._semicolon,
+                declaration._lcomment, declaration._rcomment
+            );
 
-		Utilities.insertRangeFromNode(root, this);
+            Utilities.insertRangeFromNode(root, this);
 
-		// recompute
-		this._text = null;
-		this._nameText = null;
-		this._tokens = null;
-		this._children = null;
+            // recompute
+            this._text = null;
+            this._nameText = null;
+            this._tokens = null;
+            this._children = null;
+        }
+        else
+        {
+            // TODO: throw error?
+        }
 	}
 
 	getChildren(): T.INode[]
@@ -2886,12 +2900,19 @@ export class DeclarationValue extends ComponentValueList
 		this._text = null;
 
 		declarationValue = new Parser.Parser(value).parseDeclarationValue();
-		Utilities.offsetRange(declarationValue, this.range.startLine, this.range.startColumn);
+        if (declarationValue)
+        {
+            Utilities.offsetRange(declarationValue, this.range.startLine, this.range.startColumn);
 
-		Utilities.updateNodeRange(this.getRoot(), this, declarationValue.range);
+            Utilities.updateNodeRange(this.getRoot(), this, declarationValue.range);
 
-		nodes = this._nodes;
-		nodes.splice.apply(nodes, (<any> [ 0, nodes.length ]).concat(declarationValue._children));
+            nodes = this._nodes;
+            nodes.splice.apply(nodes, (<any> [ 0, nodes.length ]).concat(declarationValue._children));
+        }
+        else
+        {
+            // TODO: throw error?
+        }
 	}
 
 	getImportant(): boolean

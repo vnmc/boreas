@@ -438,7 +438,7 @@ describe('CSS-Tokenizer', function()
 		var t = new Tokenizer('/* color: red; */ xxx', { tokenizeComments: true });
 
 		var token = t.nextToken();
-		token.token.should.eql(T.EToken.DELIM);
+		token.token.should.eql(T.EToken.LCOMMENT);
 		token.src.should.eql('/*');
 
 		token = t.nextToken();
@@ -456,7 +456,7 @@ describe('CSS-Tokenizer', function()
 		token.token.should.eql(T.EToken.SEMICOLON);
 
 		token = t.nextToken();
-		token.token.should.eql(T.EToken.DELIM);
+		token.token.should.eql(T.EToken.RCOMMENT);
 		token.src.should.eql('*/');
 
 		token = t.nextToken();
