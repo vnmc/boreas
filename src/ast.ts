@@ -2535,9 +2535,10 @@ export class Declaration extends ASTNode
 		this._name._parent = this;
 
 		// adjust the ranges
-		Utilities.offsetRange(this._name, oldRange.startLine, oldRange.startColumn);
-		Utilities.insertRangeFromNode(root, this._name);
-
+        try {
+            Utilities.offsetRange(this._name, oldRange.startLine, oldRange.startColumn);
+            Utilities.insertRangeFromNode(root, this._name);
+        } catch (e) {};
 		// recompute
 		this._text = null;
 		this._nameText = null;
@@ -2678,21 +2679,24 @@ export class Declaration extends ASTNode
 		var declaration: Declaration = Parser.parseDeclaration(newText),
 			root = this.getRoot();
 
-		Utilities.offsetRange(declaration, this.range.startLine, this.range.startColumn);
-		Utilities.zeroRange(root, this);
+        if (declaration)
+        {
+            Utilities.offsetRange(declaration, this.range.startLine, this.range.startColumn);
+            Utilities.zeroRange(root, this);
 
-		this.set(
-			declaration._name, declaration._colon, declaration._value, declaration._semicolon,
-			declaration._lcomment, declaration._rcomment
-		);
+            this.set(
+                declaration._name, declaration._colon, declaration._value, declaration._semicolon,
+                declaration._lcomment, declaration._rcomment
+            );
 
-		Utilities.insertRangeFromNode(root, this);
+            Utilities.insertRangeFromNode(root, this);
 
-		// recompute
-		this._text = null;
-		this._nameText = null;
-		this._tokens = null;
-		this._children = null;
+            // recompute
+            this._text = null;
+            this._nameText = null;
+            this._tokens = null;
+            this._children = null;
+        }
 	}
 
 	getChildren(): T.INode[]
