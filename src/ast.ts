@@ -2542,9 +2542,10 @@ export class Declaration extends ASTNode
 		this._name._parent = this;
 
 		// adjust the ranges
-		Utilities.offsetRange(this._name, oldRange.startLine, oldRange.startColumn);
-		Utilities.insertRangeFromNode(root, this._name);
-
+        try {
+            Utilities.offsetRange(this._name, oldRange.startLine, oldRange.startColumn);
+            Utilities.insertRangeFromNode(root, this._name);
+        } catch (e) {};
 		// recompute
 		this._text = null;
 		this._nameText = null;
