@@ -2671,7 +2671,7 @@ export class Declaration extends ASTNode
 
 	getImportant(): boolean
 	{
-		return this._value.getImportant();
+		return this._value ? this._value.getImportant() : false;
 	}
 
 	getText(): string
