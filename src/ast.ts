@@ -712,7 +712,7 @@ export class ComponentValueList extends ASTNodeList<ComponentValue> implements I
 {
 	constructor(values: IComponentValue[])
 	{
-		super(values);
+		super(<ComponentValue[]> values);
 	}
 
 	getValue(): string
