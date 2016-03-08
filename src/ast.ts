@@ -108,8 +108,6 @@ export function getParent(node: T.INode, ctor?: Function): T.INode
 		if (!ctor || (parent instanceof ctor))
 			return parent;
 	}
-
-	return null;
 }
 
 
@@ -271,8 +269,6 @@ export class ASTNode implements T.INode
 
 			node = parent;
 		}
-
-		return null;
 	}
 
 	/**
