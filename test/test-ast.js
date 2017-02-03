@@ -7,6 +7,43 @@ var Utils = require('./utils');
 
 describe('AST', function()
 {
+	describe('get tokens', function()
+	{
+		var css = 'body {\n\tpadding: 0;\n\ncolor: lime;\n}';
+		var ast = Parser.parse(css);
+		var rule = ast.getRules()[0];
+
+		var checkTokens = function(tokens, expected)
+		{
+			tokens.map(function(t)
+			{
+				return t.src;
+			}).should.eql(expected);
+		};
+
+		it('should have correct tokens for selector', function()
+		{
+			checkTokens(rule.getSelectors()[0].getTokens(), [ 'body' ]);
+		});
+
+		it('should have correct tokens for declarations', function()
+		{
+			var decls = rule.getDeclarations();
+			checkTokens(decls[0].getTokens(), [ 'padding', ':', '0', ';' ]);
+			checkTokens(decls[1].getTokens(), [ 'color', ':', 'lime', ';' ]);
+		});
+
+		it('should have correct tokens for rule', function()
+		{
+			checkTokens(rule.getTokens(), [ 'body', '{', 'padding', ':', '0', ';', 'color', ':', 'lime', ';', '}' ]);
+		});
+
+		it('should have correct tokens for style sheet', function()
+		{
+			checkTokens(ast.getTokens(), [ 'body', '{', 'padding', ':', '0', ';', 'color', ':', 'lime', ';', '}' ]);
+		});
+	});
+
 	describe('insert selector', function()
 	{
 		it('should be appended', function()
@@ -204,13 +241,68 @@ describe('AST', function()
 
 			ast.insertRule(Parser.parseRule('code, pre>p::after {}'));
 
+			ast.toString().should.eql('th, td {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}code, pre>p::after {}');
+
 			var rules = ast.getRules();
 			rules.getLength().should.eql(2);
 
 			rules[0].getSelectors()[0].getText().should.eql('th');
 			rules[1].getSelectors().getLength().should.eql(2);
-			rules[1].getSelectors()[0].getText().should.eql('code');
-			rules[1].getSelectors()[1].getText().should.eql('pre>p::after');
+
+			var rule = rules[1];
+			var selectors = rule.getSelectors();
+
+			selectors[0].getText().should.eql('code');
+			selectors[0].range.should.eql({ startLine: 3, startColumn: 1, endLine: 3, endColumn: 7 });
+
+			selectors[1].getText().should.eql('pre>p::after');
+			selectors[1].range.should.eql({ startLine: 3, startColumn: 7, endLine: 3, endColumn: 20 });
+
+			rule.getDeclarations().range.should.eql({ startLine: 3, startColumn: 20, endLine: 3, endColumn: 22 });
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
+		});
+
+		it('rule with declarations should be appended', function()
+		{
+			var css = 'body { color: orange; }';
+			var ast = Parser.parse(css);
+
+			ast.insertRule(Parser.parseRule('p { color: yellow;}'), 1);
+
+			ast.toString().should.eql('body { color: orange; }p { color: yellow;}');
+
+			var rules = ast.getRules();
+			rules.getLength().should.eql(2);
+
+			var decls = rules[1].getDeclarations();
+			decls.toString().should.eql('{ color: yellow;}');
+			decls.getLength().should.eql(1);
+			decls.range.should.eql({ startLine: 0, startColumn: 25, endLine: 0, endColumn: 42 });
+			decls[0].range.should.eql({ startLine: 0, startColumn: 27, endLine: 0, endColumn: 41 });
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
+		});
+
+		it('rule with comment should be appended', function()
+		{
+			var css = 'body { color: orange; }';
+			var ast = Parser.parse(css);
+
+			ast.insertRule(Parser.parseRule('p { /*xxx*/  color: yellow;}'), 1);
+
+			ast.toString().should.eql('body { color: orange; }p { /*xxx*/  color: yellow;}');
+
+			var rules = ast.getRules();
+			rules.getLength().should.eql(2);
+
+			var decls = rules[1].getDeclarations();
+			decls.toString().should.eql('{ /*xxx*/  color: yellow;}');
+			decls.getLength().should.eql(1);
+			decls.range.should.eql({ startLine: 0, startColumn: 25, endLine: 0, endColumn: 51 });
+			decls[0].range.should.eql({ startLine: 0, startColumn: 36, endLine: 0, endColumn: 50 });
 
 			Utils.checkRanges(ast);
 			Utils.checkRangeContents(ast);
@@ -253,6 +345,49 @@ describe('AST', function()
 			rules[0].getSelectors()[1].getText().should.eql('pre>p::after');
 			rules[1].getSelectors()[0].getText().should.eql('th');
 			rules[2].getSelectors()[0].getText().should.eql('article.story');
+
+			Utils.checkRanges(ast);
+			Utils.checkRangeContents(ast);
+		});
+
+		it('should parse disabled declarations', function()
+		{
+			var css = 'body { color: orange; }';
+			var ast = Parser.parse(css);
+
+			ast.insertRule(Parser.parseRule('p { /*x*/ color: yellow; /* padding: 0;*/ /*y*/\n/*z*/}'), 1);
+
+			ast.toString().should.eql('body { color: orange; }p { /*x*/ color: yellow; /* padding: 0;*/ /*y*/\n/*z*/}');
+
+			var rules = ast.getRules();
+			rules.getLength().should.eql(2);
+
+			var decls = rules[1].getDeclarations();
+			decls.toString().should.eql('{ /*x*/ color: yellow; /* padding: 0;*/ /*y*/\n/*z*/}');
+			decls.getLength().should.eql(2);
+			decls.range.should.eql({ startLine: 0, startColumn: 25, endLine: 1, endColumn: 6 });
+			decls[0].range.should.eql({ startLine: 0, startColumn: 33, endLine: 0, endColumn: 48 });
+			decls[1].range.should.eql({ startLine: 0, startColumn: 48, endLine: 1, endColumn: 5 });
+
+			var comment = decls[1].getRComment();
+			comment.src.should.eql('*/');
+			comment.trailingTrivia.length.should.eql(4);
+			comment.range.should.eql({ startLine: 0, startColumn: 62, endLine: 1, endColumn: 5 });
+
+			var children = comment.getChildren();
+			children.length.should.eql(4);
+
+			children[0].src.should.eql(' ');
+			children[0].range.should.eql({ startLine: 0, startColumn: 64, endLine: 0, endColumn: 65 });
+
+			children[1].src.should.eql('/*y*/');
+			children[1].range.should.eql({ startLine: 0, startColumn: 65, endLine: 0, endColumn: 70 });
+
+			children[2].src.should.eql('\n');
+			children[2].range.should.eql({ startLine: 0, startColumn: 70, endLine: 1, endColumn: 0 });
+
+			children[3].src.should.eql('/*z*/');
+			children[3].range.should.eql({ startLine: 1, startColumn: 0, endLine: 1, endColumn: 5 });
 
 			Utils.checkRanges(ast);
 			Utils.checkRangeContents(ast);

@@ -38,7 +38,7 @@ export function getLineStartIndices(text: string): number[]
 		if (c === '\r' || c === '\n')
 			lineStartIndices.push(i + 1);
 
-		// skip a '\n' following a '\r'
+		// skip a '\n' following a '\r0'
 		if (i < len - 1 && c === '\r' && text[i + 1] === '\n')
 		{
 			lineStartIndices[lineStartIndices.length - 1]++;
@@ -350,7 +350,7 @@ export function offsetRange(ast: T.INode, lineOffset: number, columnOffset: numb
 
 	var startLine = ast.range.startLine;
 
-	var offsetRecursive = function(node: T.INode)
+	var offsetRecursive = function(node: T.INode /* , updateTrivia: boolean*/)
 	{
 		var children = node.getChildren(),
 			len = children.length,
@@ -366,8 +366,28 @@ export function offsetRange(ast: T.INode, lineOffset: number, columnOffset: numb
 		node.range.startLine += lineOffset;
 		node.range.endLine += lineOffset;
 
+		// update children
 		for (i = 0; i < len; i++)
 			offsetRecursive(children[i]);
+
+		/*
+		// update trivia
+		if (updateTrivia && (node instanceof Tokenizer.Token))
+		{
+			if ((<Tokenizer.Token> node).leadingTrivia)
+			{
+				lenTrivia = (<Tokenizer.Token> node).leadingTrivia.length;
+				for (j = 0; j < lenTrivia; j++)
+					offsetRecursive((<Tokenizer.Token> node).leadingTrivia[j], false);
+			}
+
+			if ((<Tokenizer.Token> node).trailingTrivia)
+			{
+				lenTrivia = (<Tokenizer.Token> node).trailingTrivia.length;
+				for (j = 0; j < lenTrivia; j++)
+					offsetRecursive((<Tokenizer.Token> node).trailingTrivia[j], false);
+			}
+		}*/
 	};
 
 	if (lineOffset !== 0 || columnOffset !== 0)
@@ -382,4 +402,32 @@ export function getTextFromRange(text: string, range: T.ISourceRange): string
 	var end = getIndexFromLineColumn(range.endLine, range.endColumn, lineStartIndices);
 
 	return text.substring(start, end);
+}
+
+
+export function replaceTextInRange(text: string, range: T.ISourceRange, replacement: string): string
+{
+	var lineStartIndices = getLineStartIndices(text);
+	var start = getIndexFromLineColumn(range.startLine, range.startColumn, lineStartIndices);
+	var end = getIndexFromLineColumn(range.endLine, range.endColumn, lineStartIndices);
+
+	return text.substr(0, start) + replacement + text.substr(end);
+}
+
+
+/**
+ * Computes the range "source" relative to "target".
+ *
+ * @param source
+ * @param target
+ * @returns {T.ISourceRange}
+ */
+export function relativeRange(source: T.ISourceRange, target: T.ISourceRange): T.ISourceRange
+{
+	return {
+		startLine: source.startLine - target.startLine,
+		startColumn: source.startLine === target.startLine ? source.startColumn - target.startColumn : source.startColumn,
+		endLine: source.endLine - target.startLine,
+		endColumn: source.endLine === target.startLine ? source.endColumn - target.startColumn : source.endColumn
+	};
 }

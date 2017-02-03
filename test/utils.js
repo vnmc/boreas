@@ -1,6 +1,5 @@
 var DEBUG = false;
 
-var Tokenizer = require('../lib/tokenizer');
 var Utilities = require('../lib/utilities');
 
 

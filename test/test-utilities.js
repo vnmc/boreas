@@ -1,6 +1,10 @@
 var should = require('should');
 
-var CSSParser = require('../lib/utilities');
+var Utilities = require('../lib/utilities');
+var Parser = require('../lib/parser');
+var AST = require('../lib/ast');
+
+var U = require('./utils');
 
 
 describe('Utilities', function()
@@ -11,7 +15,7 @@ describe('Utilities', function()
 		it('multiline1', function()
 		{
 			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.insertRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
+			Utilities.insertRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(4);
@@ -22,7 +26,7 @@ describe('Utilities', function()
 		it('multiline2', function()
 		{
 			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.insertRange(r, { startLine: 1, startColumn: 2, endLine: 3, endColumn: 5 });
+			Utilities.insertRange(r, { startLine: 1, startColumn: 2, endLine: 3, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(5);
@@ -33,7 +37,7 @@ describe('Utilities', function()
 		it('multiline3', function()
 		{
 			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.insertRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 4 });
+			Utilities.insertRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 4 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(4);
@@ -44,7 +48,7 @@ describe('Utilities', function()
 		it('multiline4', function()
 		{
 			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.insertRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 5 });
+			Utilities.insertRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(3);
@@ -55,7 +59,7 @@ describe('Utilities', function()
 		it('multiline5', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 2 };
-			CSSParser.insertRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 4 });
+			Utilities.insertRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 4 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(7);
 			r.endLine.should.eql(3);
@@ -66,7 +70,7 @@ describe('Utilities', function()
 		it('multiline6', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 2 };
-			CSSParser.insertRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 3 });
+			Utilities.insertRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 3 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(6);
 			r.endLine.should.eql(4);
@@ -77,7 +81,7 @@ describe('Utilities', function()
 		it('multiline7', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.insertRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
+			Utilities.insertRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(4);
@@ -88,7 +92,7 @@ describe('Utilities', function()
 		it('multiline8', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.insertRange(r, { startLine: 0, startColumn: 0, endLine: 2, endColumn: 5 });
+			Utilities.insertRange(r, { startLine: 0, startColumn: 0, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(3);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(5);
@@ -99,7 +103,7 @@ describe('Utilities', function()
 		it('multiline9', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.insertRange(r, { startLine: 0, startColumn: 0, endLine: 1, endColumn: 5 });
+			Utilities.insertRange(r, { startLine: 0, startColumn: 0, endLine: 1, endColumn: 5 });
 			r.startLine.should.eql(2);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(4);
@@ -110,7 +114,7 @@ describe('Utilities', function()
 		it('multiline10', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.insertRange(r, { startLine: 0, startColumn: 0, endLine: 0, endColumn: 6 });
+			Utilities.insertRange(r, { startLine: 0, startColumn: 0, endLine: 0, endColumn: 6 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(3);
@@ -121,7 +125,7 @@ describe('Utilities', function()
 		it('multiline11', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 1, endColumn: 4 };
-			CSSParser.insertRange(r, { startLine: 0, startColumn: 0, endLine: 2, endColumn: 5 });
+			Utilities.insertRange(r, { startLine: 0, startColumn: 0, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(3);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(3);
@@ -132,7 +136,7 @@ describe('Utilities', function()
 		it('multiline12', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 1, endColumn: 4 };
-			CSSParser.insertRange(r, { startLine: 1, startColumn: 0, endLine: 1, endColumn: 2 });
+			Utilities.insertRange(r, { startLine: 1, startColumn: 0, endLine: 1, endColumn: 2 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(1);
@@ -143,7 +147,7 @@ describe('Utilities', function()
 		it('multiline13', function()
 		{
 			var r = { startLine: 3, startColumn: 0, endLine: 4, endColumn: 0 };
-			CSSParser.insertRange(r, { startLine: 4, startColumn: 0, endLine: 5, endColumn: 0 });
+			Utilities.insertRange(r, { startLine: 4, startColumn: 0, endLine: 5, endColumn: 0 });
 			r.startLine.should.eql(3);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(4);
@@ -154,7 +158,7 @@ describe('Utilities', function()
 		it('multiline14', function()
 		{
 			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 1 };
-			CSSParser.insertRange(r, { startLine: 3, startColumn: 0, endLine: 3, endColumn: 10 });
+			Utilities.insertRange(r, { startLine: 3, startColumn: 0, endLine: 3, endColumn: 10 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(3);
@@ -165,7 +169,7 @@ describe('Utilities', function()
 		it('multiline15', function()
 		{
 			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 1 };
-			CSSParser.insertRange(r, { startLine: 3, startColumn: 0, endLine: 4, endColumn: 10 });
+			Utilities.insertRange(r, { startLine: 3, startColumn: 0, endLine: 4, endColumn: 10 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(4);
@@ -176,7 +180,7 @@ describe('Utilities', function()
 		it('multiline16', function()
 		{
 			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 1 };
-			CSSParser.insertRange(r, { startLine: 3, startColumn: 0, endLine: 4, endColumn: 10 });
+			Utilities.insertRange(r, { startLine: 3, startColumn: 0, endLine: 4, endColumn: 10 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(4);
@@ -187,7 +191,7 @@ describe('Utilities', function()
 		it('multiline17', function()
 		{
 			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 1 };
-			CSSParser.insertRange(r, { startLine: 3, startColumn: 0, endLine: 4, endColumn: 10 });
+			Utilities.insertRange(r, { startLine: 3, startColumn: 0, endLine: 4, endColumn: 10 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(4);
@@ -198,7 +202,7 @@ describe('Utilities', function()
 		it('singleline1', function()
 		{
 			var r = { startLine: 1, startColumn: 2, endLine: 1, endColumn: 4 };
-			CSSParser.insertRange(r, { startLine: 1, startColumn: 1, endLine: 1, endColumn: 8 });
+			Utilities.insertRange(r, { startLine: 1, startColumn: 1, endLine: 1, endColumn: 8 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(9);
 			r.endLine.should.eql(1);
@@ -209,7 +213,7 @@ describe('Utilities', function()
 		it('singleline2', function()
 		{
 			var r = { startLine: 1, startColumn: 5, endLine: 1, endColumn: 9 };
-			CSSParser.insertRange(r, { startLine: 1, startColumn: 2, endLine: 1, endColumn: 6 });
+			Utilities.insertRange(r, { startLine: 1, startColumn: 2, endLine: 1, endColumn: 6 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(9);
 			r.endLine.should.eql(1);
@@ -220,7 +224,7 @@ describe('Utilities', function()
 		it('singleline3', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 1, endColumn: 5 };
-			CSSParser.insertRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
+			Utilities.insertRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(2);
@@ -231,7 +235,7 @@ describe('Utilities', function()
 		it('singleline4', function()
 		{
 			var r = { startLine: 3, startColumn: 0, endLine: 3, endColumn: 5 };
-			CSSParser.insertRange(r, { startLine: 3, startColumn: 2, endLine: 6, endColumn: 9 });
+			Utilities.insertRange(r, { startLine: 3, startColumn: 2, endLine: 6, endColumn: 9 });
 			r.startLine.should.eql(3);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(6);
@@ -242,7 +246,7 @@ describe('Utilities', function()
 		it('singleline5', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 1, endColumn: 5 };
-			CSSParser.insertRange(r, { startLine: 1, startColumn: 3, endLine: 2, endColumn: 1 });
+			Utilities.insertRange(r, { startLine: 1, startColumn: 3, endLine: 2, endColumn: 1 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(2);
@@ -253,7 +257,7 @@ describe('Utilities', function()
 		it('singleline6', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 1, endColumn: 5 };
-			CSSParser.insertRange(r, { startLine: 1, startColumn: 2, endLine: 1, endColumn: 4 });
+			Utilities.insertRange(r, { startLine: 1, startColumn: 2, endLine: 1, endColumn: 4 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(1);
@@ -264,7 +268,7 @@ describe('Utilities', function()
 		it('singleline7', function()
 		{
 			var r = { startLine: 1, startColumn: 2, endLine: 1, endColumn: 5 };
-			CSSParser.insertRange(r, { startLine: 1, startColumn: 0, endLine: 2, endColumn: 3 });
+			Utilities.insertRange(r, { startLine: 1, startColumn: 0, endLine: 2, endColumn: 3 });
 			r.startLine.should.eql(2);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(2);
@@ -275,7 +279,7 @@ describe('Utilities', function()
 		it('singleline8', function()
 		{
 			var r = { startLine: 1, startColumn: 2, endLine: 1, endColumn: 5 };
-			CSSParser.insertRange(r, { startLine: 1, startColumn: 1, endLine: 2, endColumn: 3 });
+			Utilities.insertRange(r, { startLine: 1, startColumn: 1, endLine: 2, endColumn: 3 });
 			r.startLine.should.eql(2);
 			r.startColumn.should.eql(4);
 			r.endLine.should.eql(2);
@@ -285,7 +289,7 @@ describe('Utilities', function()
 		it('singleline9', function()
 		{
 			var r = { startLine: 2, startColumn: 0, endLine: 2, endColumn: 2 };
-			CSSParser.insertRange(r, { startLine: 2, startColumn: 3, endLine: 2, endColumn: 9 });
+			Utilities.insertRange(r, { startLine: 2, startColumn: 3, endLine: 2, endColumn: 9 });
 			r.startLine.should.eql(2);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(2);
@@ -295,7 +299,7 @@ describe('Utilities', function()
 		it('singleline10', function()
 		{
 			var r = { startLine: 2, startColumn: 0, endLine: 2, endColumn: 3 };
-			CSSParser.insertRange(r, { startLine: 2, startColumn: 3, endLine: 2, endColumn: 9 });
+			Utilities.insertRange(r, { startLine: 2, startColumn: 3, endLine: 2, endColumn: 9 });
 			r.startLine.should.eql(2);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(2);
@@ -306,7 +310,7 @@ describe('Utilities', function()
 		it('singleline11', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 8 };
-			CSSParser.insertRange(r, { startLine: 0, startColumn: 1, endLine: 0, endColumn: 3 });
+			Utilities.insertRange(r, { startLine: 0, startColumn: 1, endLine: 0, endColumn: 3 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(7);
 			r.endLine.should.eql(0);
@@ -316,7 +320,7 @@ describe('Utilities', function()
 		it('before', function()
 		{
 			var r = { startLine: 7, startColumn: 5, endLine: 11, endColumn: 8 };
-			CSSParser.insertRange(r, { startLine: 2, startColumn: 1, endLine: 5, endColumn: 3 });
+			Utilities.insertRange(r, { startLine: 2, startColumn: 1, endLine: 5, endColumn: 3 });
 			r.startLine.should.eql(10);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(14);
@@ -330,7 +334,7 @@ describe('Utilities', function()
 		it('1', function()
 		{
 			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(2);
@@ -341,7 +345,7 @@ describe('Utilities', function()
 		it('2', function()
 		{
 			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 3, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 3, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(1);
@@ -352,7 +356,7 @@ describe('Utilities', function()
 		it('3', function()
 		{
 			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 4 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 4 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(2);
@@ -363,7 +367,7 @@ describe('Utilities', function()
 		it('4', function()
 		{
 			var r = { startLine: 0, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(3);
@@ -375,7 +379,7 @@ describe('Utilities', function()
 		it('5', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 2 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 3 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 3 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(4);
 			r.endLine.should.eql(3);
@@ -386,7 +390,7 @@ describe('Utilities', function()
 		it('6', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 2 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 3 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 3 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(2);
@@ -398,7 +402,7 @@ describe('Utilities', function()
 		it('7', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(2);
@@ -409,7 +413,7 @@ describe('Utilities', function()
 		it('8', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 0, endLine: 2, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 0, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(1);
@@ -420,7 +424,7 @@ describe('Utilities', function()
 		it('9', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 0, endLine: 1, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 0, endLine: 1, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(2);
@@ -431,7 +435,7 @@ describe('Utilities', function()
 		it('10', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 3, endColumn: 2 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 0, endLine: 0, endColumn: 6 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 0, endLine: 0, endColumn: 6 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(3);
@@ -443,7 +447,7 @@ describe('Utilities', function()
 		it('11', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 1, endColumn: 4 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 3, endLine: 2, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 3, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(3);
 			r.endLine.should.eql(0);
@@ -454,7 +458,7 @@ describe('Utilities', function()
 		it('12', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 1, endColumn: 4 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 0, endLine: 1, endColumn: 2 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 0, endLine: 1, endColumn: 2 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(1);
@@ -465,7 +469,7 @@ describe('Utilities', function()
 		it('13', function()
 		{
 			var r = { startLine: 1, startColumn: 2, endLine: 1, endColumn: 4 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 1, endColumn: 8 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 1, endColumn: 8 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(1);
 			r.endLine.should.eql(1);
@@ -476,7 +480,7 @@ describe('Utilities', function()
 		it('14', function()
 		{
 			var r = { startLine: 1, startColumn: 5, endLine: 1, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 1, endColumn: 6 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 1, endColumn: 6 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(1);
@@ -488,7 +492,7 @@ describe('Utilities', function()
 		it('15', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 1, endColumn: 5 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(1);
@@ -499,7 +503,7 @@ describe('Utilities', function()
 		it('16', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 1, endColumn: 5 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 9 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(1);
@@ -510,7 +514,7 @@ describe('Utilities', function()
 		it('17', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 1, endColumn: 5 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 3, endLine: 2, endColumn: 1 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 3, endLine: 2, endColumn: 1 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(1);
@@ -521,7 +525,7 @@ describe('Utilities', function()
 		it('18', function()
 		{
 			var r = { startLine: 1, startColumn: 0, endLine: 1, endColumn: 5 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 1, endColumn: 4 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 1, endColumn: 4 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(1);
@@ -533,7 +537,7 @@ describe('Utilities', function()
 		it('19', function()
 		{
 			var r = { startLine: 1, startColumn: 2, endLine: 1, endColumn: 5 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 0, endLine: 2, endColumn: 3 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 0, endLine: 2, endColumn: 3 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(1);
@@ -545,7 +549,7 @@ describe('Utilities', function()
 		it('20', function()
 		{
 			var r = { startLine: 1, startColumn: 2, endLine: 1, endColumn: 5 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 2, endColumn: 3 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 2, endColumn: 3 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(1);
 			r.endLine.should.eql(1);
@@ -557,7 +561,7 @@ describe('Utilities', function()
 		it('21', function()
 		{
 			var r = { startLine: 3, startColumn: 0, endLine: 4, endColumn: 0 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 0, endLine: 5, endColumn: 0 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 0, endLine: 5, endColumn: 0 });
 			r.startLine.should.eql(3);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(4);
@@ -568,7 +572,7 @@ describe('Utilities', function()
 		it('22', function()
 		{
 			var r = { startLine: 3, startColumn: 0, endLine: 4, endColumn: 0 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 0, endLine: 5, endColumn: 0 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 0, endLine: 5, endColumn: 0 });
 			r.startLine.should.eql(3);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(4);
@@ -579,7 +583,7 @@ describe('Utilities', function()
 		it('23', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 2 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 5, endColumn: 7 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 5, endColumn: 7 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(0);
@@ -590,7 +594,7 @@ describe('Utilities', function()
 		it('24', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 2 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 8, endLine: 5, endColumn: 7 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 8, endLine: 5, endColumn: 7 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -601,7 +605,7 @@ describe('Utilities', function()
 		it('25', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 2 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 5, endColumn: 7 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 5, endColumn: 7 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(1);
@@ -612,7 +616,7 @@ describe('Utilities', function()
 		it('26', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -623,7 +627,7 @@ describe('Utilities', function()
 		it('27', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 3, endColumn: 6 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 3, endColumn: 6 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(0);
@@ -634,7 +638,7 @@ describe('Utilities', function()
 		it('28', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 8, endLine: 3, endColumn: 6 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 8, endLine: 3, endColumn: 6 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -645,7 +649,7 @@ describe('Utilities', function()
 		it('29', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 3, endColumn: 6 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 3, endColumn: 6 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(1);
@@ -656,7 +660,7 @@ describe('Utilities', function()
 		it('30', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 2, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(1);
@@ -667,7 +671,7 @@ describe('Utilities', function()
 		it('31', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 2, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(1);
@@ -678,7 +682,7 @@ describe('Utilities', function()
 		it('32', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 8, endLine: 2, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 8, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(1);
@@ -689,7 +693,7 @@ describe('Utilities', function()
 		it('33', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(2);
@@ -700,7 +704,7 @@ describe('Utilities', function()
 		it('34', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 3, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 3, endColumn: 9 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -711,7 +715,7 @@ describe('Utilities', function()
 		it('35', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 3, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 3, endColumn: 9 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(0);
@@ -722,7 +726,7 @@ describe('Utilities', function()
 		it('36', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 8, endLine: 3, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 8, endLine: 3, endColumn: 9 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -733,7 +737,7 @@ describe('Utilities', function()
 		it('37', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 3, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 3, endColumn: 9 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(1);
@@ -744,7 +748,7 @@ describe('Utilities', function()
 		it('38', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 3, endColumn: 4 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 3, endColumn: 4 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -755,7 +759,7 @@ describe('Utilities', function()
 		it('39', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 3, endColumn: 4 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 3, endColumn: 4 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(0);
@@ -766,7 +770,7 @@ describe('Utilities', function()
 		it('40', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 8, endLine: 3, endColumn: 4 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 8, endLine: 3, endColumn: 4 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -777,7 +781,7 @@ describe('Utilities', function()
 		it('41', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 3, endColumn: 4 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 2, endLine: 3, endColumn: 4 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(1);
@@ -788,7 +792,7 @@ describe('Utilities', function()
 		it('42', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 3, startColumn: 2, endLine: 3, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 3, startColumn: 2, endLine: 3, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(3);
@@ -799,7 +803,7 @@ describe('Utilities', function()
 		it('43', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 3, startColumn: 2, endLine: 3, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 3, startColumn: 2, endLine: 3, endColumn: 9 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(3);
@@ -810,7 +814,7 @@ describe('Utilities', function()
 		it('44', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 3, startColumn: 2, endLine: 4, endColumn: 4 });
+			Utilities.deleteRange(r, { startLine: 3, startColumn: 2, endLine: 4, endColumn: 4 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(3);
@@ -821,7 +825,7 @@ describe('Utilities', function()
 		it('45', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 3, startColumn: 6, endLine: 3, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 3, startColumn: 6, endLine: 3, endColumn: 9 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(3);
@@ -832,7 +836,7 @@ describe('Utilities', function()
 		it('46', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 3, startColumn: 6, endLine: 4, endColumn: 4 });
+			Utilities.deleteRange(r, { startLine: 3, startColumn: 6, endLine: 4, endColumn: 4 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(3);
@@ -843,7 +847,7 @@ describe('Utilities', function()
 		it('47', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 3, startColumn: 8, endLine: 3, endColumn: 10 });
+			Utilities.deleteRange(r, { startLine: 3, startColumn: 8, endLine: 3, endColumn: 10 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(3);
@@ -854,7 +858,7 @@ describe('Utilities', function()
 		it('48', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 3, startColumn: 8, endLine: 4, endColumn: 4 });
+			Utilities.deleteRange(r, { startLine: 3, startColumn: 8, endLine: 4, endColumn: 4 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(3);
@@ -865,7 +869,7 @@ describe('Utilities', function()
 		it('49', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 3, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 4, endLine: 5, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 4, endLine: 5, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(3);
@@ -875,7 +879,7 @@ describe('Utilities', function()
 		it('50', function()
 		{
 			var r = { startLine: 10, startColumn: 5, endLine: 15, endColumn: 7 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 4, endLine: 8, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 4, endLine: 8, endColumn: 5 });
 			r.startLine.should.eql(6);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(11);
@@ -886,7 +890,7 @@ describe('Utilities', function()
 		it('51', function()
 		{
 			var r = { startLine: 10, startColumn: 5, endLine: 15, endColumn: 7 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 4, endLine: 10, endColumn: 2 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 4, endLine: 10, endColumn: 2 });
 			r.startLine.should.eql(4);
 			r.startColumn.should.eql(7);
 			r.endLine.should.eql(9);
@@ -897,7 +901,7 @@ describe('Utilities', function()
 		it('52', function()
 		{
 			var r = { startLine: 10, startColumn: 5, endLine: 15, endColumn: 7 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 4, endLine: 10, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 4, endLine: 10, endColumn: 5 });
 			r.startLine.should.eql(4);
 			r.startColumn.should.eql(4);
 			r.endLine.should.eql(9);
@@ -908,7 +912,7 @@ describe('Utilities', function()
 		it('53', function()
 		{
 			var r = { startLine: 10, startColumn: 5, endLine: 15, endColumn: 7 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 4, endLine: 10, endColumn: 8 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 4, endLine: 10, endColumn: 8 });
 			r.startLine.should.eql(4);
 			r.startColumn.should.eql(4);
 			r.endLine.should.eql(9);
@@ -919,7 +923,7 @@ describe('Utilities', function()
 		it('54', function()
 		{
 			var r = { startLine: 0, startColumn: 0, endLine: 0, endColumn: 14 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 86, endLine: 0, endColumn: 99 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 86, endLine: 0, endColumn: 99 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(0);
 			r.endLine.should.eql(0);
@@ -930,7 +934,7 @@ describe('Utilities', function()
 		it('S01', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 4 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 4 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(3);
 			r.endLine.should.eql(0);
@@ -939,7 +943,7 @@ describe('Utilities', function()
 		it('S02', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(0);
@@ -948,7 +952,7 @@ describe('Utilities', function()
 		it('S03', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 7 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 7 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(0);
@@ -957,7 +961,7 @@ describe('Utilities', function()
 		it('S04', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 9 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(0);
@@ -966,7 +970,7 @@ describe('Utilities', function()
 		it('S05', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 12 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 12 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(0);
@@ -975,7 +979,7 @@ describe('Utilities', function()
 		it('S06', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 0, endColumn: 7 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 0, endColumn: 7 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -984,7 +988,7 @@ describe('Utilities', function()
 		it('S07', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -993,7 +997,7 @@ describe('Utilities', function()
 		it('S08', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 0, endColumn: 12 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 5, endLine: 0, endColumn: 12 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -1002,7 +1006,7 @@ describe('Utilities', function()
 		it('S09', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 6, endLine: 0, endColumn: 7 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 6, endLine: 0, endColumn: 7 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -1011,7 +1015,7 @@ describe('Utilities', function()
 		it('S10', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 6, endLine: 0, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 6, endLine: 0, endColumn: 9 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -1020,7 +1024,7 @@ describe('Utilities', function()
 		it('S11', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 6, endLine: 0, endColumn: 12 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 6, endLine: 0, endColumn: 12 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -1029,7 +1033,7 @@ describe('Utilities', function()
 		it('S12', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 9, endLine: 0, endColumn: 12 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 9, endLine: 0, endColumn: 12 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -1038,7 +1042,7 @@ describe('Utilities', function()
 		it('S13', function()
 		{
 			var r = { startLine: 0, startColumn: 5, endLine: 0, endColumn: 9 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 11, endLine: 0, endColumn: 12 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 11, endLine: 0, endColumn: 12 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(0);
@@ -1050,7 +1054,7 @@ describe('Utilities', function()
 		it('M01', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 0, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(4);
@@ -1059,7 +1063,7 @@ describe('Utilities', function()
 		it('M02', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(3);
@@ -1068,7 +1072,7 @@ describe('Utilities', function()
 		it('M03', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 8 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 8 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(3);
@@ -1077,7 +1081,7 @@ describe('Utilities', function()
 		it('M04', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 11 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 1, endColumn: 11 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(3);
@@ -1086,7 +1090,7 @@ describe('Utilities', function()
 		it('M05', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 2, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(2);
@@ -1095,7 +1099,7 @@ describe('Utilities', function()
 		it('M06', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 3, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 3, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(1);
@@ -1104,7 +1108,7 @@ describe('Utilities', function()
 		it('M07', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 4, endColumn: 3 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 4, endColumn: 3 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(0);
@@ -1113,7 +1117,7 @@ describe('Utilities', function()
 		it('M08', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 4, endColumn: 6 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 4, endColumn: 6 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(0);
@@ -1122,7 +1126,7 @@ describe('Utilities', function()
 		it('M09', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 4, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 4, endColumn: 9 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(0);
@@ -1131,7 +1135,7 @@ describe('Utilities', function()
 		it('M0a', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 5, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 0, startColumn: 2, endLine: 5, endColumn: 5 });
 			r.startLine.should.eql(0);
 			r.startColumn.should.eql(2);
 			r.endLine.should.eql(0);
@@ -1142,7 +1146,7 @@ describe('Utilities', function()
 		it('M11', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 1, endColumn: 4 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 1, endColumn: 4 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(5);
 			r.endLine.should.eql(4);
@@ -1151,7 +1155,7 @@ describe('Utilities', function()
 		it('M12', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 1, endColumn: 8 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 1, endColumn: 8 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(1);
 			r.endLine.should.eql(4);
@@ -1160,7 +1164,7 @@ describe('Utilities', function()
 		it('M13', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 1, endColumn: 11 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 1, endColumn: 11 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(1);
 			r.endLine.should.eql(4);
@@ -1169,7 +1173,7 @@ describe('Utilities', function()
 		it('M14', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 2, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(1);
 			r.endLine.should.eql(3);
@@ -1178,7 +1182,7 @@ describe('Utilities', function()
 		it('M15', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 3, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 3, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(1);
 			r.endLine.should.eql(2);
@@ -1187,7 +1191,7 @@ describe('Utilities', function()
 		it('M16', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 4, endColumn: 3 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 4, endColumn: 3 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(1);
 			r.endLine.should.eql(1);
@@ -1196,7 +1200,7 @@ describe('Utilities', function()
 		it('M17', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 4, endColumn: 6 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 4, endColumn: 6 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(1);
 			r.endLine.should.eql(1);
@@ -1205,7 +1209,7 @@ describe('Utilities', function()
 		it('M18', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 4, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 4, endColumn: 9 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(1);
 			r.endLine.should.eql(1);
@@ -1214,7 +1218,7 @@ describe('Utilities', function()
 		it('M19', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 5, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 1, endLine: 5, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(1);
 			r.endLine.should.eql(1);
@@ -1225,7 +1229,7 @@ describe('Utilities', function()
 		it('M21', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 1, endColumn: 11 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 1, endColumn: 11 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(4);
@@ -1234,7 +1238,7 @@ describe('Utilities', function()
 		it('M22', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 2, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(3);
@@ -1243,7 +1247,7 @@ describe('Utilities', function()
 		it('M23', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 3, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 3, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(2);
@@ -1252,7 +1256,7 @@ describe('Utilities', function()
 		it('M24', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 4, endColumn: 3 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 4, endColumn: 3 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(1);
@@ -1261,7 +1265,7 @@ describe('Utilities', function()
 		it('M25', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(1);
@@ -1270,7 +1274,7 @@ describe('Utilities', function()
 		it('M26', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 4, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 4, endColumn: 9 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(1);
@@ -1279,7 +1283,7 @@ describe('Utilities', function()
 		it('M27', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 5, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 8, endLine: 5, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(1);
@@ -1290,7 +1294,7 @@ describe('Utilities', function()
 		it('M31', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 1, endColumn: 14 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 1, endColumn: 14 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(4);
@@ -1299,7 +1303,7 @@ describe('Utilities', function()
 		it('M32', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 2, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 2, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(3);
@@ -1308,7 +1312,7 @@ describe('Utilities', function()
 		it('M33', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 3, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 3, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(2);
@@ -1317,7 +1321,7 @@ describe('Utilities', function()
 		it('M34', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 4, endColumn: 3 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 4, endColumn: 3 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(1);
@@ -1326,7 +1330,7 @@ describe('Utilities', function()
 		it('M35', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 4, endColumn: 6 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 4, endColumn: 6 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(1);
@@ -1335,7 +1339,7 @@ describe('Utilities', function()
 		it('M36', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 4, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 4, endColumn: 9 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(1);
@@ -1344,7 +1348,7 @@ describe('Utilities', function()
 		it('M37', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 5, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 1, startColumn: 11, endLine: 5, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(1);
@@ -1355,7 +1359,7 @@ describe('Utilities', function()
 		it('M41', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 2, startColumn: 5, endLine: 2, endColumn: 8 });
+			Utilities.deleteRange(r, { startLine: 2, startColumn: 5, endLine: 2, endColumn: 8 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(4);
@@ -1364,7 +1368,7 @@ describe('Utilities', function()
 		it('M42', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 2, startColumn: 5, endLine: 3, endColumn: 8 });
+			Utilities.deleteRange(r, { startLine: 2, startColumn: 5, endLine: 3, endColumn: 8 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(3);
@@ -1373,7 +1377,7 @@ describe('Utilities', function()
 		it('M43', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 2, startColumn: 5, endLine: 4, endColumn: 3 });
+			Utilities.deleteRange(r, { startLine: 2, startColumn: 5, endLine: 4, endColumn: 3 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(2);
@@ -1382,7 +1386,7 @@ describe('Utilities', function()
 		it('M44', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 2, startColumn: 5, endLine: 4, endColumn: 6 });
+			Utilities.deleteRange(r, { startLine: 2, startColumn: 5, endLine: 4, endColumn: 6 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(2);
@@ -1391,7 +1395,7 @@ describe('Utilities', function()
 		it('M45', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 2, startColumn: 5, endLine: 4, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 2, startColumn: 5, endLine: 4, endColumn: 9 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(2);
@@ -1400,7 +1404,7 @@ describe('Utilities', function()
 		it('M46', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 2, startColumn: 5, endLine: 5, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 2, startColumn: 5, endLine: 5, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(2);
@@ -1411,7 +1415,7 @@ describe('Utilities', function()
 		it('M51', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 3, startColumn: 4, endLine: 3, endColumn: 7 });
+			Utilities.deleteRange(r, { startLine: 3, startColumn: 4, endLine: 3, endColumn: 7 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(4);
@@ -1420,7 +1424,7 @@ describe('Utilities', function()
 		it('M52', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 3, startColumn: 4, endLine: 4, endColumn: 3 });
+			Utilities.deleteRange(r, { startLine: 3, startColumn: 4, endLine: 4, endColumn: 3 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(3);
@@ -1429,7 +1433,7 @@ describe('Utilities', function()
 		it('M53', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 3, startColumn: 4, endLine: 4, endColumn: 6 });
+			Utilities.deleteRange(r, { startLine: 3, startColumn: 4, endLine: 4, endColumn: 6 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(3);
@@ -1438,7 +1442,7 @@ describe('Utilities', function()
 		it('M54', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 3, startColumn: 4, endLine: 4, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 3, startColumn: 4, endLine: 4, endColumn: 9 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(3);
@@ -1447,7 +1451,7 @@ describe('Utilities', function()
 		it('M55', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 3, startColumn: 4, endLine: 5, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 3, startColumn: 4, endLine: 5, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(3);
@@ -1458,7 +1462,7 @@ describe('Utilities', function()
 		it('M61', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 1, endLine: 4, endColumn: 3 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 1, endLine: 4, endColumn: 3 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(4);
@@ -1467,7 +1471,7 @@ describe('Utilities', function()
 		it('M62', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 1, endLine: 4, endColumn: 6 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 1, endLine: 4, endColumn: 6 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(4);
@@ -1476,7 +1480,7 @@ describe('Utilities', function()
 		it('M63', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 1, endLine: 4, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 1, endLine: 4, endColumn: 9 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(4);
@@ -1485,7 +1489,7 @@ describe('Utilities', function()
 		it('M64', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 1, endLine: 5, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 1, endLine: 5, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(4);
@@ -1496,7 +1500,7 @@ describe('Utilities', function()
 		it('M71', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 6, endLine: 4, endColumn: 9 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 6, endLine: 4, endColumn: 9 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(4);
@@ -1505,7 +1509,7 @@ describe('Utilities', function()
 		it('M72', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 6, endLine: 5, endColumn: 5 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 6, endLine: 5, endColumn: 5 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(4);
@@ -1516,7 +1520,7 @@ describe('Utilities', function()
 		it('M81', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 4, startColumn: 9, endLine: 4, endColumn: 11 });
+			Utilities.deleteRange(r, { startLine: 4, startColumn: 9, endLine: 4, endColumn: 11 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(4);
@@ -1527,11 +1531,98 @@ describe('Utilities', function()
 		it('M91', function()
 		{
 			var r = { startLine: 1, startColumn: 8, endLine: 4, endColumn: 6 };
-			CSSParser.deleteRange(r, { startLine: 5, startColumn: 5, endLine: 6, endColumn: 11 });
+			Utilities.deleteRange(r, { startLine: 5, startColumn: 5, endLine: 6, endColumn: 11 });
 			r.startLine.should.eql(1);
 			r.startColumn.should.eql(8);
 			r.endLine.should.eql(4);
 			r.endColumn.should.eql(6);
+		});
+	});
+
+	describe('replaceTextInRange', function()
+	{
+		it('middle', function()
+		{
+			var text = 'hello beautiful world';
+			var range = {
+				startLine: 0,
+				startColumn: 6,
+				endLine: 0,
+				endColumn: 15
+			};
+			var repl = 'silly';
+
+			Utilities.replaceTextInRange(text, range, repl).should.eql('hello silly world');
+		});
+	});
+
+	describe('offsetRange', function()
+	{
+		it('T1', function()
+		{
+			var css = 'body {\n  /*xxx*/ color: teal;}';
+			var ast = Parser.parse(css);
+
+			Utilities.offsetRange(ast, 3, 10);
+
+			U.checkRanges(ast);
+			U.checkRangeContents(ast, '\n\n\n          ' + css);
+		});
+	});
+
+	describe('insertRangeFromNode', function()
+	{
+		it('T1', function()
+		{
+			var css = 'body {\n  /*xxx*/ color: teal;}';
+			var ast = Parser.parse(css);
+
+			var node = new AST.ASTNode();
+			node._parent = ast.getRules()[0].getDeclarations();
+			node.range = {
+				startLine: 0,
+				startColumn: 9,
+				endLine: 0,
+				endColumn: 15
+			};
+			Utilities.insertRangeFromNode(ast, node);
+
+			U.checkRanges(ast);
+		});
+	});
+
+	describe('relativeRange', function()
+	{
+		it('same line', function()
+		{
+			Utilities.relativeRange(
+				{ startLine: 1, startColumn: 4, endLine: 1, endColumn: 6 },
+				{ startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 }
+			).should.eql({ startLine: 0, startColumn: 3, endLine: 0, endColumn: 5 });
+		});
+
+		it('target has more lines', function()
+		{
+			Utilities.relativeRange(
+				{ startLine: 1, startColumn: 4, endLine: 1, endColumn: 6 },
+				{ startLine: 1, startColumn: 1, endLine: 3, endColumn: 10 }
+			).should.eql({ startLine: 0, startColumn: 3, endLine: 0, endColumn: 5 });
+		});
+
+		it('start on line below', function()
+		{
+			Utilities.relativeRange(
+				{ startLine: 2, startColumn: 4, endLine: 3, endColumn: 6 },
+				{ startLine: 1, startColumn: 1, endLine: 3, endColumn: 10 }
+			).should.eql({ startLine: 1, startColumn: 4, endLine: 2, endColumn: 6 });
+		});
+
+		it('source lines between target lines', function()
+		{
+			Utilities.relativeRange(
+				{ startLine: 2, startColumn: 4, endLine: 3, endColumn: 6 },
+				{ startLine: 1, startColumn: 1, endLine: 4, endColumn: 10 }
+			).should.eql({ startLine: 1, startColumn: 4, endLine: 2, endColumn: 6 });
 		});
 	});
 });

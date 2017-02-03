@@ -149,6 +149,8 @@ function trailingWhitespace(token: Tokenizer.Token, range?: T.ISourceRange): Tok
 		new Tokenizer.Token(Tokenizer.EToken.WHITESPACE, range || new SourceRange(), ' ')
 	];
 
+	token._children = null;
+
 	return token;
 }
 
@@ -204,6 +206,16 @@ export class ASTNode implements T.INode
 		if (this._tokens === null)
 			this._tokens = [];
 		return this._tokens;
+	}
+
+	getFirstToken(): Tokenizer.Token
+	{
+		return null;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		return null;
 	}
 
 	walk(walker: IASTWalker): any
@@ -351,6 +363,40 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 		}
 
 		return this._tokens;
+	}
+
+	getFirstToken(): Tokenizer.Token
+	{
+		if (!this._nodes || this._nodes.length === 0)
+			return null;
+
+		var firstNode = this._nodes[0];
+		if (firstNode instanceof Tokenizer.Token)
+			return <Tokenizer.Token> <any> firstNode;
+
+		if (firstNode instanceof ASTNode)
+			return (<ASTNode> <any> firstNode).getFirstToken();
+
+		return null;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		if (!this._nodes)
+			return null;
+
+		var len = this._nodes.length;
+		if (len === 0)
+			return null;
+
+		var lastNode = this._nodes[len - 1];
+		if (lastNode instanceof Tokenizer.Token)
+			return <Tokenizer.Token> <any> lastNode;
+
+		if (lastNode instanceof ASTNode)
+			return (<ASTNode> <any> lastNode).getLastToken();
+
+		return null;
 	}
 
 	/**
@@ -530,7 +576,7 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 			// update the references
 			for (i = pos; i < len - 1; i++)
 				this[i] = nodes[i];
-			delete this[len - 1];
+			this[len - 1] = undefined;
 
 			// update the ranges
 			Utilities.zeroRange(this.getRoot(), node);
@@ -572,7 +618,7 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 
 		// remove the references
 		for (i = 0; i < len; i++)
-			delete this[i];
+			this[i] = undefined;
 
 		// update the ranges
 		Utilities.zeroRange(this.getRoot(), range);
@@ -677,6 +723,16 @@ export class ComponentValue extends ASTNode implements IComponentValue
 		return this._tokens;
 	}
 
+	getFirstToken(): Tokenizer.Token
+	{
+		return this._token;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		return this._token;
+	}
+
 	getToken(): Tokenizer.Token
 	{
 		return this._token;
@@ -770,11 +826,33 @@ export class BlockComponentValue extends ComponentValueList
 	{
 		if (this._tokens === null)
 		{
-			this._tokens = [ this._startToken ].concat(super.getTokens());
+			super.getTokens();
+			if (!this._tokens)
+				this._tokens = [];
+
+			this._tokens.unshift(this._startToken);
 			this._tokens.push(this._endToken);
 		}
 
 		return this._tokens;
+	}
+
+	getFirstToken(): Tokenizer.Token
+	{
+		if (this._startToken)
+			return this._startToken;
+		if (this._endToken)
+			return this._endToken;
+		return null;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		if (this._endToken)
+			return this._endToken;
+		if (this._startToken)
+			return this._startToken;
+		return null;
 	}
 
 	getStartToken(): Tokenizer.Token
@@ -864,17 +942,22 @@ export class FunctionArgumentValue extends ComponentValueList
 
 	getTokens(): Tokenizer.Token[]
 	{
-		var tokens: Tokenizer.Token[];
-
 		if (this._tokens === null)
 		{
-			tokens = super.getTokens();
-			this._tokens = tokens ? tokens.slice(0) : [];
+			super.getTokens();
 			if (this._separator)
 				this._tokens.push(this._separator);
 		}
 
 		return this._tokens;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		if (this._separator)
+			return this._separator;
+
+		return super.getLastToken();
 	}
 
 	getChildren(): T.INode[]
@@ -985,6 +1068,17 @@ export class ImportantComponentValue extends ASTNode
 		}
 
 		return this._tokens;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		if (this._important)
+			return this._important;
+
+		if (this._exclamationMark)
+			return this._exclamationMark;
+
+		return super.getLastToken();
 	}
 
 	getChildren(): T.INode[]
@@ -1131,15 +1225,33 @@ export class RuleList extends ASTNodeList<AbstractRule>
 	{
 		if (this._tokens === null)
 		{
-			this._tokens = [];
+			super.getTokens();
+			if (!this._tokens)
+				this._tokens = [];
 
 			if (this._lbrace)
-				this._tokens.push(this._lbrace);
-			this._tokens = this._tokens.concat(super.getTokens());
-			this._tokens.push(this._rbrace);
+				this._tokens.unshift(this._lbrace);
+			if (this._rbrace)
+				this._tokens.push(this._rbrace);
 		}
 
 		return this._tokens;
+	}
+
+	getFirstToken(): Tokenizer.Token
+	{
+		if (this._lbrace)
+			return this._lbrace;
+
+		return super.getFirstToken();
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		if (this._rbrace)
+			return this._rbrace;
+
+		return super.getLastToken();
 	}
 
 	getLBrace(): Tokenizer.Token
@@ -1290,6 +1402,28 @@ export class StyleSheet extends ASTNode implements IRulesContainer
 		}
 
 		return this._tokens;
+	}
+
+	getFirstToken(): Tokenizer.Token
+	{
+		if (this._cdo)
+			return this._cdo;
+		if (this._rules)
+			return this._rules.getFirstToken();
+		if (this._cdc)
+			return this._cdc;
+		return null;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		if (this._cdc)
+			return this._cdc;
+		if (this._rules)
+			return this._rules.getLastToken();
+		if (this._cdo)
+			return this._cdo;
+		return null;
 	}
 
 	getRules(): RuleList
@@ -1453,6 +1587,24 @@ export class Rule extends AbstractRule
 		}
 
 		return this._tokens;
+	}
+
+	getFirstToken(): Tokenizer.Token
+	{
+		if (this._selectors)
+			return this._selectors.getFirstToken();
+		if (this._declarations)
+			return this._declarations.getFirstToken();
+		return null;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		if (this._declarations)
+			return this._declarations.getLastToken();
+		if (this._selectors)
+			return this._selectors.getLastToken();
+		return null;
 	}
 
 	getSelectors(): SelectorList
@@ -1652,7 +1804,7 @@ export class Selector extends ComponentValueList
 			// remove the trivia
 			lastToken = tokens[lenTokens - 1];
 			trivia = lastToken.trailingTrivia;
-			delete lastToken.trailingTrivia;
+			lastToken.trailingTrivia = undefined;
 			lastToken._children = null;
 
 			// update the ranges
@@ -1710,14 +1862,14 @@ export class Selector extends ComponentValueList
 
 	setText(newText: string): void
 	{
-        var values = new Parser.Parser(newText).parseComponentValueList();
+		var values = new Parser.Parser(newText).parseComponentValueList();
 
-        if (values)
-		    this.replaceNodes(values);
-        else
-        {
-            // TODO: throw error?
-        }
+		if (values)
+			this.replaceNodes(values);
+		else
+		{
+			// TODO: throw error?
+		}
 	}
 
 	getChildren(): T.INode[]
@@ -1737,18 +1889,24 @@ export class Selector extends ComponentValueList
 
 	getTokens(): Tokenizer.Token[]
 	{
-		var tokens: Tokenizer.Token[];
-
 		if (this._tokens === null)
 		{
-			tokens = super.getTokens();
-			this._tokens = tokens ? tokens.slice(0) : [];
+			super.getTokens();
+			if (!this._tokens)
+				this._tokens = [];
 
 			if (this._separator)
 				this._tokens.push(this._separator);
 		}
 
 		return this._tokens;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		if (this._separator)
+			return this._separator;
+		return super.getLastToken();
 	}
 
 	getSeparator(): Tokenizer.Token
@@ -1895,7 +2053,38 @@ export class SimpleSelector<U extends T.INode> extends ASTNode implements ICompo
 		}
 
 		return this._tokens;
+	}
 
+	getFirstToken(): Tokenizer.Token
+	{
+		if (this._namespace)
+			return this._namespace;
+
+		if (this._pipe)
+			return this._pipe;
+
+		if (this._value instanceof Tokenizer.Token)
+			return <Tokenizer.Token> <any> this._value;
+		if (this._value instanceof ASTNode)
+			return (<ASTNode> <any> this._value).getFirstToken();
+
+		return null;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		if (this._value instanceof Tokenizer.Token)
+			return <Tokenizer.Token> <any> this._value;
+		if (this._value instanceof ASTNode)
+			return (<ASTNode> <any> this._value).getLastToken();
+
+		if (this._pipe)
+			return this._pipe;
+
+		if (this._namespace)
+			return this._namespace;
+
+		return null;
 	}
 
 	walk(walker: IASTWalker): any
@@ -2084,11 +2273,19 @@ export class ClassSelector extends SimpleSelector<Tokenizer.Token>
 	{
 		if (this._tokens === null)
 		{
-			this._tokens = super.getTokens();
+			super.getTokens();
+			if (!this._tokens)
+				this._tokens = [];
+
 			this._tokens.push(this._className);
 		}
 
 		return this._tokens;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		return this._className;
 	}
 
 	walk(walker: IASTWalker): any
@@ -2220,7 +2417,38 @@ export class PseudoClass extends ASTNode implements IComponentValue
 		}
 
 		return this._tokens;
+	}
 
+	getFirstToken(): Tokenizer.Token
+	{
+		if (this._colon1)
+			return this._colon1;
+
+		if (this._colon2)
+			return this._colon2;
+
+		if (this._pseudoClassName instanceof Tokenizer.Token)
+			return <Tokenizer.Token> <any> this._pseudoClassName;
+		if (this._pseudoClassName instanceof ASTNode)
+			return (<ASTNode> <any> this._pseudoClassName).getFirstToken();
+
+		return null;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		if (this._pseudoClassName instanceof Tokenizer.Token)
+			return <Tokenizer.Token> <any> this._pseudoClassName;
+		if (this._pseudoClassName instanceof ASTNode)
+			return (<ASTNode> <any> this._pseudoClassName).getLastToken();
+
+		if (this._colon2)
+			return this._colon2;
+
+		if (this._colon1)
+			return this._colon1;
+
+		return null;
 	}
 
 	walk(walker: IASTWalker): any
@@ -2386,16 +2614,33 @@ export class DeclarationList extends ASTNodeList<Declaration>
 	{
 		if (this._tokens === null)
 		{
-			this._tokens = [];
+			super.getTokens();
+			if (!this._tokens)
+				this._tokens = [];
 
 			if (this._lbrace)
-				this._tokens.push(this._lbrace);
-			this._tokens = this._tokens.concat(super.getTokens());
+				this._tokens.unshift(this._lbrace);
 			if (this._rbrace)
 				this._tokens.push(this._rbrace);
 		}
 
 		return this._tokens;
+	}
+
+	getFirstToken(): Tokenizer.Token
+	{
+		if (this._lbrace)
+			return this._lbrace;
+
+		return super.getFirstToken();
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		if (this._rbrace)
+			return this._rbrace;
+
+		return super.getLastToken();
 	}
 
 	getLBrace(): Tokenizer.Token
@@ -2538,10 +2783,16 @@ export class Declaration extends ASTNode
 		this._name._parent = this;
 
 		// adjust the ranges
-        try {
-            Utilities.offsetRange(this._name, oldRange.startLine, oldRange.startColumn);
-            Utilities.insertRangeFromNode(root, this._name);
-        } catch (e) {};
+		try
+		{
+			Utilities.offsetRange(this._name, oldRange.startLine, oldRange.startColumn);
+			Utilities.insertRangeFromNode(root, this._name);
+		}
+		catch (e)
+		{
+			// ignore
+		}
+
 		// recompute
 		this._text = null;
 		this._nameText = null;
@@ -2682,28 +2933,28 @@ export class Declaration extends ASTNode
 		var declaration: Declaration = Parser.parseDeclaration(newText),
 			root = this.getRoot();
 
-        if (declaration)
-        {
-            Utilities.offsetRange(declaration, this.range.startLine, this.range.startColumn);
-            Utilities.zeroRange(root, this);
+		if (declaration)
+		{
+			Utilities.offsetRange(declaration, this.range.startLine, this.range.startColumn);
+			Utilities.zeroRange(root, this);
 
-            this.set(
-                declaration._name, declaration._colon, declaration._value, declaration._semicolon,
-                declaration._lcomment, declaration._rcomment
-            );
+			this.set(
+				declaration._name, declaration._colon, declaration._value, declaration._semicolon,
+				declaration._lcomment, declaration._rcomment
+			);
 
-            Utilities.insertRangeFromNode(root, this);
+			Utilities.insertRangeFromNode(root, this);
 
-            // recompute
-            this._text = null;
-            this._nameText = null;
-            this._tokens = null;
-            this._children = null;
-        }
-        else
-        {
-            // TODO: throw error?
-        }
+			// recompute
+			this._text = null;
+			this._nameText = null;
+			this._tokens = null;
+			this._children = null;
+		}
+		else
+		{
+			// TODO: throw error?
+		}
 	}
 
 	getChildren(): T.INode[]
@@ -2749,6 +3000,60 @@ export class Declaration extends ASTNode
 		}
 
 		return this._tokens;
+	}
+
+	getFirstToken(): Tokenizer.Token
+	{
+		if (this._lcomment)
+			return this._lcomment;
+
+		if (this._name instanceof Tokenizer.Token)
+			return <Tokenizer.Token> <any> this._name;
+		if (this._name instanceof ASTNode)
+			return (<ASTNode> <any> this._name).getFirstToken();
+
+		if (this._colon)
+			return this._colon;
+
+		if (this._value instanceof Tokenizer.Token)
+			return <Tokenizer.Token> <any> this._value;
+		if (this._value instanceof ASTNode)
+			return (<ASTNode> <any> this._value).getFirstToken();
+
+		if (this._semicolon)
+			return this._semicolon;
+
+		if (this._rcomment)
+			return this._rcomment;
+
+		return null;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		if (this._rcomment)
+			return this._rcomment;
+
+		if (this._semicolon)
+			return this._semicolon;
+
+		if (this._value instanceof Tokenizer.Token)
+			return <Tokenizer.Token> <any> this._value;
+		if (this._value instanceof ASTNode)
+			return (<ASTNode> <any> this._value).getFirstToken();
+
+		if (this._colon)
+			return this._colon;
+
+		if (this._name instanceof Tokenizer.Token)
+			return <Tokenizer.Token> <any> this._name;
+		if (this._name instanceof ASTNode)
+			return (<ASTNode> <any> this._name).getFirstToken();
+
+		if (this._lcomment)
+			return this._lcomment;
+
+		return null;
 	}
 
 	walk(walker: IASTWalker): any
@@ -2897,19 +3202,19 @@ export class DeclarationValue extends ComponentValueList
 		this._text = null;
 
 		declarationValue = new Parser.Parser(value).parseDeclarationValue();
-        if (declarationValue)
-        {
-            Utilities.offsetRange(declarationValue, this.range.startLine, this.range.startColumn);
+		if (declarationValue)
+		{
+			Utilities.offsetRange(declarationValue, this.range.startLine, this.range.startColumn);
 
-            Utilities.updateNodeRange(this.getRoot(), this, declarationValue.range);
+			Utilities.updateNodeRange(this.getRoot(), this, declarationValue.range);
 
-            nodes = this._nodes;
-            nodes.splice.apply(nodes, (<any> [ 0, nodes.length ]).concat(declarationValue._children));
-        }
-        else
-        {
-            // TODO: throw error?
-        }
+			nodes = this._nodes;
+			nodes.splice.apply(nodes, (<any> [ 0, nodes.length ]).concat(declarationValue._children));
+		}
+		else
+		{
+			// TODO: throw error?
+		}
 	}
 
 	getImportant(): boolean
@@ -3051,6 +3356,25 @@ export class AtRule extends AbstractRule implements IRulesContainer
 		}
 
 		return this._tokens;
+	}
+
+	getFirstToken(): Tokenizer.Token
+	{
+		return this._atKeyword;
+	}
+
+	getLastToken(): Tokenizer.Token
+	{
+		if (this._semicolon)
+			return this._semicolon;
+
+		if (this._block)
+			return this._block.getLastToken();
+
+		if (this._prelude)
+			return this._prelude.getLastToken();
+
+		return this._atKeyword;
 	}
 
 	walk(walker: IASTWalker): any

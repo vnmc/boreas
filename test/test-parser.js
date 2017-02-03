@@ -44,6 +44,66 @@ describe('CSS-Parser', function()
 		});
 	});
 
+	describe('parsing rules with disabled declarations', function()
+	{
+		it('should parse with space', function()
+		{
+			var css = 'p { /*padding: 0; */ color:red;}';
+			var ast = P.parse(css);
+
+			ast.toString().should.eql(css);
+		});
+
+		it('should parse without space (first)', function()
+		{
+			var css = 'p {/*padding: 0; */ color:red;}';
+			var ast = P.parse(css);
+
+			ast.toString().should.eql(css);
+		});
+
+		it('should parse without space (second)', function()
+		{
+			var css = 'p {padding: 0;/*color:red;*/}';
+			var ast = P.parse(css);
+
+			ast.toString().should.eql(css);
+		});
+
+		it('trailing trivia of disabled declaration should have correct ranges', function()
+		{
+			var css = 'p {padding: 0; /* color:red; */ /*y*/\n/*z*/\n}';
+			var ast = P.parse(css);
+
+			ast.toString().should.eql(css);
+
+			var decls = ast.getRules()[0].getDeclarations();
+			decls.getLength().should.eql(2);
+
+			var comment = decls[1].getRComment();
+			comment.src.should.eql('*/');
+			comment.trailingTrivia.length.should.eql(5);
+
+			var children = comment.getChildren();
+			children.length.should.eql(5);
+
+			children[0].src.should.eql(' ');
+			children[0].range.should.eql({ startLine: 0, startColumn: 31, endLine: 0, endColumn: 32 });
+
+			children[1].src.should.eql('/*y*/');
+			children[1].range.should.eql({ startLine: 0, startColumn: 32, endLine: 0, endColumn: 37 });
+
+			children[2].src.should.eql('\n');
+			children[2].range.should.eql({ startLine: 0, startColumn: 37, endLine: 1, endColumn: 0 });
+
+			children[3].src.should.eql('/*z*/');
+			children[3].range.should.eql({ startLine: 1, startColumn: 0, endLine: 1, endColumn: 5 });
+
+			children[4].src.should.eql('\n');
+			children[4].range.should.eql({ startLine: 1, startColumn: 5, endLine: 2, endColumn: 0 });
+		});
+	});
+
 	describe('should have correct ranges for', function()
 	{
 		var css = 'body {\n\tcolor: orange;\npadding: 1px 2% 3em 4pt !important;\n}';
@@ -74,6 +134,99 @@ describe('CSS-Parser', function()
 			prop2.range.startColumn.should.eql(0);
 			prop2.range.endLine.should.eql(3);
 			prop2.range.endColumn.should.eql(0);
+		});
+	});
+
+	describe('should have correct ranges for rule with disabled declaration', function()
+	{
+		it('first', function()
+		{
+			var css = 'p {/*padding: 0; */ color:red;}';
+			var ast = P.parse(css);
+
+			var decls = ast.getRules()[0].getDeclarations();
+			decls.getLength().should.eql(2);
+
+			decls[0].toString().should.eql('/*padding: 0; */ ');
+			decls[0].range.startLine.should.eql(0);
+			decls[0].range.startColumn.should.eql(3);
+			decls[0].range.endLine.should.eql(0);
+			decls[0].range.endColumn.should.eql(20);
+
+			decls[1].toString().should.eql('color:red;');
+			decls[1].range.startLine.should.eql(0);
+			decls[1].range.startColumn.should.eql(20);
+			decls[1].range.endLine.should.eql(0);
+			decls[1].range.endColumn.should.eql(30);
+		});
+
+		it('second', function()
+		{
+			var css = 'p {padding: 0;/*color:red;*/}';
+			var ast = P.parse(css);
+
+			var decls = ast.getRules()[0].getDeclarations();
+			decls.getLength().should.eql(2);
+
+			decls[0].toString().should.eql('padding: 0;');
+			decls[0].range.startLine.should.eql(0);
+			decls[0].range.startColumn.should.eql(3);
+			decls[0].range.endLine.should.eql(0);
+			decls[0].range.endColumn.should.eql(14);
+
+			decls[1].toString().should.eql('/*color:red;*/');
+			decls[1].range.startLine.should.eql(0);
+			decls[1].range.startColumn.should.eql(14);
+			decls[1].range.endLine.should.eql(0);
+			decls[1].range.endColumn.should.eql(28);
+		});
+
+		it('second with spaces', function()
+		{
+			var css = 'p {padding: 0; /* color:red; */}';
+			var ast = P.parse(css);
+
+			var decls = ast.getRules()[0].getDeclarations();
+			decls.getLength().should.eql(2);
+
+			decls[0].toString().should.eql('padding: 0; ');
+			decls[0].range.startLine.should.eql(0);
+			decls[0].range.startColumn.should.eql(3);
+			decls[0].range.endLine.should.eql(0);
+			decls[0].range.endColumn.should.eql(15);
+
+			decls[1].toString().should.eql('/* color:red; */');
+			decls[1].range.startLine.should.eql(0);
+			decls[1].range.startColumn.should.eql(15);
+			decls[1].range.endLine.should.eql(0);
+			decls[1].range.endColumn.should.eql(31);
+		});
+
+		it('multiple', function()
+		{
+			var css = 'p {padding: 0;/*color:red;*//* margin: auto; */}';
+			var ast = P.parse(css);
+
+			var decls = ast.getRules()[0].getDeclarations();
+			decls.getLength().should.eql(3);
+
+			decls[0].toString().should.eql('padding: 0;');
+			decls[0].range.startLine.should.eql(0);
+			decls[0].range.startColumn.should.eql(3);
+			decls[0].range.endLine.should.eql(0);
+			decls[0].range.endColumn.should.eql(14);
+
+			decls[1].toString().should.eql('/*color:red;*/');
+			decls[1].range.startLine.should.eql(0);
+			decls[1].range.startColumn.should.eql(14);
+			decls[1].range.endLine.should.eql(0);
+			decls[1].range.endColumn.should.eql(28);
+
+			decls[2].toString().should.eql('/* margin: auto; */');
+			decls[2].range.startLine.should.eql(0);
+			decls[2].range.startColumn.should.eql(28);
+			decls[2].range.endLine.should.eql(0);
+			decls[2].range.endColumn.should.eql(47);
 		});
 	});
 

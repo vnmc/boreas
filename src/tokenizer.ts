@@ -62,7 +62,7 @@ enum EChar
 	LF = 10,    // \n
 	VTAB = 11,
 	FF = 12,    // \f
-	CR = 13,    // \r
+	CR = 13,    // \r0
 	SPACE = 32,
 	QUOT = 34,
 	HASH = 35,

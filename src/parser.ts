@@ -6,11 +6,17 @@ import T = require('./types');
 import AST = require('./ast');
 import Tokenizer = require('./tokenizer');
 import Utilities = require('./utilities');
+import TriviaConverter = require('./trivia-converter');
 
 
 // ==================================================================
 // TYPE DECLARATIONS
 // ==================================================================
+
+export interface IParseOptions extends Tokenizer.ITokenizerOptions
+{
+	preferLeadingTrivia?: boolean;
+}
 
 export interface IAtRuleSpec
 {
@@ -37,47 +43,71 @@ export enum EAtRule
 // CONVENIENCE METHODS
 // ==================================================================
 
-export function parse(styleSheetSrc: string, options?: Tokenizer.ITokenizerOptions): AST.StyleSheet
+export function parse(styleSheetSrc: string, options?: IParseOptions): AST.StyleSheet
 {
-	return new Parser(styleSheetSrc, options).parseStyleSheet();
+	var ret = new Parser(styleSheetSrc, options).parseStyleSheet();
+
+	if (options && options.preferLeadingTrivia)
+		TriviaConverter.convertToLeadingTrivia(ret);
+
+	return ret;
 }
 
-export function parseRule(ruleSrc: string, options?: Tokenizer.ITokenizerOptions): AST.AbstractRule
+export function parseRule(ruleSrc: string, options?: IParseOptions): AST.AbstractRule
 {
 	var parser = new Parser(ruleSrc, options),
-		t = parser.getCurrentToken();
+		t = parser.getCurrentToken(),
+		ret: AST.AbstractRule;
 
 	if (!t)
 		return null;
 
-	if (t.token === Tokenizer.EToken.AT_KEYWORD)
-		return parser.parseAtRule();
+	ret = t.token === Tokenizer.EToken.AT_KEYWORD ? parser.parseAtRule() : parser.parseQualifiedRule();
 
-	return parser.parseQualifiedRule();
+	if (options && options.preferLeadingTrivia)
+		TriviaConverter.convertToLeadingTrivia(ret);
+
+	return ret;
 }
 
-export function parseSelectors(selectorsSrc: string, options?: Tokenizer.ITokenizerOptions): AST.SelectorList
+export function parseSelectors(selectorsSrc: string, options?: IParseOptions): AST.SelectorList
 {
-	return new Parser(selectorsSrc, options).parseSelectorList();
+	var ret = new Parser(selectorsSrc, options).parseSelectorList();
+
+	if (options && options.preferLeadingTrivia)
+		TriviaConverter.convertToLeadingTrivia(ret);
+
+	return ret;
 }
 
-export function parseSelector(selectorSrc: string, options?: Tokenizer.ITokenizerOptions): AST.Selector
+export function parseSelector(selectorSrc: string, options?: IParseOptions): AST.Selector
 {
-	return new Parser(selectorSrc, options).parseSelector();
+	var ret = new Parser(selectorSrc, options).parseSelector();
+
+	if (options && options.preferLeadingTrivia)
+		TriviaConverter.convertToLeadingTrivia(ret);
+
+	return ret;
 }
 
-export function parseDeclarations(declarationsSrc: string, options?: Tokenizer.ITokenizerOptions): AST.DeclarationList
+export function parseDeclarations(declarationsSrc: string, options?: IParseOptions): AST.DeclarationList
 {
-	return new Parser(declarationsSrc, options).parseDeclarationList();
+	var ret = new Parser(declarationsSrc, options).parseDeclarationList();
+
+	if (options && options.preferLeadingTrivia)
+		TriviaConverter.convertToLeadingTrivia(ret);
+
+	return ret;
 }
 
-export function parseDeclaration(declarationSrc: string, options?: Tokenizer.ITokenizerOptions): AST.Declaration
+export function parseDeclaration(declarationSrc: string, options?: IParseOptions): AST.Declaration
 {
 	var parser = new Parser(declarationSrc, options),
 		t = parser.getCurrentToken(),
 		token: Tokenizer.Token,
 		len: number,
-		i: number;
+		i: number,
+		ret: AST.Declaration;
 
 	if (!t)
 		return null;
@@ -92,12 +122,22 @@ export function parseDeclaration(declarationSrc: string, options?: Tokenizer.ITo
 		for (i = 0; i < len; i++)
 		{
 			token = t.leadingTrivia[i];
+
 			if (token.token === Tokenizer.EToken.COMMENT)
-				return parser.parseDisabledDeclaration(token, false);
+			{
+				ret = parser.parseDisabledDeclaration(token, false);
+				break;
+			}
 		}
 	}
 
-	return parser.parseDeclaration(false);
+	if (!ret)
+		ret = parser.parseDeclaration(false);
+
+	if (options && options.preferLeadingTrivia)
+		TriviaConverter.convertToLeadingTrivia(ret);
+
+	return ret;
 }
 
 
@@ -398,7 +438,7 @@ export class Parser
 	 */
 	parseDeclarationList(): AST.DeclarationList
 	{
-		var lbrace: Tokenizer.Token = null,
+		var lbrace: Tokenizer.Token,
 			rbrace: Tokenizer.Token = null,
 			token: Tokenizer.EToken,
 			declaration: AST.Declaration,
@@ -537,13 +577,29 @@ export class Parser
 			tokens: Tokenizer.Token[],
 			lastToken = token;
 
-		var updateRange = function(t: Tokenizer.Token)
+		var updateRange = function(t: Tokenizer.Token, defaultRange?: T.ISourceRange)
 		{
 			var trivia = t.trailingTrivia,
-				range = trivia[trivia.length - 1].range,
-				endLine = range.endLine,
-				endColumn = range.endColumn,
+				len = trivia.length,
+				range: T.ISourceRange,
+				endLine: number,
+				endColumn: number,
 				node: T.INode = t;
+
+			if (len === 0)
+			{
+				if (!defaultRange)
+					return;
+
+				endLine = defaultRange.startLine;
+				endColumn = defaultRange.startColumn;
+			}
+			else
+			{
+				range = trivia[len - 1].range;
+				endLine = range.endLine;
+				endColumn = range.endColumn;
+			}
 
 			// update the range of t and all its ancestors to include the trailing trivia
 			for ( ; node; node = node.getParent())
@@ -560,6 +616,7 @@ export class Parser
 		originalTrailingTrivia = token.trailingTrivia.slice(0);
 		len = originalTrailingTrivia.length;
 		lastTrailingTrivia = token.trailingTrivia = [];
+		token._children = null;
 
 		for (i = 0; i < len; i++)
 		{
@@ -571,12 +628,13 @@ export class Parser
 				{
 					declarations.push(declaration);
 
-					updateRange(lastToken);
+					updateRange(lastToken, t.range);
 					tokens = declaration.getTokens();
 					lastToken = tokens[tokens.length - 1];
 					if (!lastToken.trailingTrivia)
 						lastToken.trailingTrivia = [];
 					lastTrailingTrivia = lastToken.trailingTrivia;
+					lastToken._children = null;
 
 					continue;
 				}
