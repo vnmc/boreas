@@ -663,7 +663,7 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 		return walker(this, function()
 		{
 			return that.walkChildren(walker);
-		}, walker);
+		}, walker) || this.walkChildren(walker);
 	}
 
 	walkChildren(walker: IASTWalker, result: any[] = []): any[]
