@@ -145,19 +145,24 @@ export function parseDeclaration(declarationSrc: string, options?: IParseOptions
 // PARSER IMPLEMENTATION
 // ==================================================================
 
-export var atRules: IAtRuleSpec[] = <IAtRuleSpec[]> [
-	{ keyword: 'charset', astClass: AST.AtCharset, type: EAtRule.SIMPLE },
-	{ keyword: 'custom-media', astClass: AST.AtCustomMedia, type: EAtRule.SIMPLE },
-	{ keyword: 'document', astClass: AST.AtDocument, type: EAtRule.RULE_LIST },
-	{ keyword: 'font-face', astClass: AST.AtFontFace, type: EAtRule.DECLARATION_LIST },
-	{ keyword: 'host', astClass: AST.AtHost, type: EAtRule.RULE_LIST },
-	{ keyword: 'import', astClass: AST.AtImport, type: EAtRule.SIMPLE },
-	{ keyword: 'keyframes', astClass: AST.AtKeyframes, type: EAtRule.RULE_LIST },
-	{ keyword: 'media', astClass: AST.AtMedia, type: EAtRule.RULE_LIST },
-	{ keyword: 'namespace', astClass: AST.AtNamespace, type: EAtRule.SIMPLE },
-	{ keyword: 'page', astClass: AST.AtPage, type: EAtRule.DECLARATION_LIST },
-	{ keyword: 'supports', astClass: AST.AtSupports, type: EAtRule.RULE_LIST }
-];
+export var atRules: IAtRuleSpec[] = <IAtRuleSpec[]> [];
+
+function initAtRules()
+{
+	atRules.push(
+		{ keyword: 'charset', astClass: AST.AtCharset, type: EAtRule.SIMPLE },
+		{ keyword: 'custom-media', astClass: AST.AtCustomMedia, type: EAtRule.SIMPLE },
+		{ keyword: 'document', astClass: AST.AtDocument, type: EAtRule.RULE_LIST },
+		{ keyword: 'font-face', astClass: AST.AtFontFace, type: EAtRule.DECLARATION_LIST },
+		{ keyword: 'host', astClass: AST.AtHost, type: EAtRule.RULE_LIST },
+		{ keyword: 'import', astClass: AST.AtImport, type: EAtRule.SIMPLE },
+		{ keyword: 'keyframes', astClass: AST.AtKeyframes, type: EAtRule.RULE_LIST },
+		{ keyword: 'media', astClass: AST.AtMedia, type: EAtRule.RULE_LIST },
+		{ keyword: 'namespace', astClass: AST.AtNamespace, type: EAtRule.SIMPLE },
+		{ keyword: 'page', astClass: AST.AtPage, type: EAtRule.DECLARATION_LIST },
+		{ keyword: 'supports', astClass: AST.AtSupports, type: EAtRule.RULE_LIST }
+	);
+}
 
 
 function getLastToken(n: T.INode): Tokenizer.Token
@@ -185,6 +190,9 @@ export class Parser
 
 	constructor(src: string, options?: Tokenizer.ITokenizerOptions)
 	{
+		if (atRules.length === 0)
+			initAtRules();
+
 		this._tokenizer = new Tokenizer.Tokenizer(src || '', options);
 		this.nextToken();
 	}
@@ -533,7 +541,16 @@ export class Parser
 			this.nextToken();
 		}
 
-		value = this.parseDeclarationValue();
+		try
+		{
+			value = this.parseDeclarationValue();
+		}
+		catch (e)
+		{
+			return throwErrors ?
+				AST.Declaration.fromErrorTokens(this.cleanup(e, [ Tokenizer.EToken.SEMICOLON ], [ Tokenizer.EToken.RBRACE ]), name, colon) :
+				null;
+		}
 
 		if (throwErrors)
 			this.expect(Tokenizer.EToken.SEMICOLON, Tokenizer.EToken.RBRACE, name, colon, value);

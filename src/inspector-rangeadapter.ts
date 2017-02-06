@@ -25,7 +25,9 @@ class RangeAdapter
 		var lenDeclarations = declarations.getLength(),
 			firstRange = declarations.range,
 			lastRange = declarations.range,
-			firstTrailing = declarations.getLBrace().trailingTrivia,
+			lbrace = declarations.getLBrace(),
+			rbrace = declarations.getRBrace(),
+			firstTrailing = lbrace && lbrace.trailingTrivia,
 			firstLeading: Tokenizer.Token[],
 			lastLeading: Tokenizer.Token[],
 			lastTrailing: Tokenizer.Token[],
@@ -51,7 +53,7 @@ class RangeAdapter
 			}
 		}
 
-		lastLeading = declarations.getRBrace().leadingTrivia;
+		lastLeading = rbrace && rbrace.leadingTrivia;
 		if (lastLeading && lastLeading.length > 0)
 			lastRange = lastLeading[lastLeading.length - 1].range;
 		else if (lenDeclarations > 0)

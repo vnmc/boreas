@@ -367,6 +367,9 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 
 	getFirstToken(): Tokenizer.Token
 	{
+		if (this._hasError && this._tokens && this._tokens.length > 0)
+			return this._tokens[0];
+
 		if (!this._nodes || this._nodes.length === 0)
 			return null;
 
@@ -382,6 +385,9 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 
 	getLastToken(): Tokenizer.Token
 	{
+		if (this._hasError && this._tokens && this._tokens.length > 0)
+			return this._tokens[this._tokens.length - 1];
+
 		if (!this._nodes)
 			return null;
 
@@ -1175,6 +1181,7 @@ export class RuleList extends ASTNodeList<AbstractRule>
 		var ruleList = new RuleList([]);
 
 		ruleList._tokens = tokens;
+		ruleList._children = tokens;
 		ruleList._hasError = true;
 		setRangeFromChildren(ruleList.range, tokens);
 
@@ -1240,6 +1247,9 @@ export class RuleList extends ASTNodeList<AbstractRule>
 
 	getFirstToken(): Tokenizer.Token
 	{
+		if (this._hasError && this._tokens && this._tokens.length > 0)
+			return this._tokens[0];
+
 		if (this._lbrace)
 			return this._lbrace;
 
@@ -1248,6 +1258,9 @@ export class RuleList extends ASTNodeList<AbstractRule>
 
 	getLastToken(): Tokenizer.Token
 	{
+		if (this._hasError && this._tokens && this._tokens.length > 0)
+			return this._tokens[this._tokens.length - 1];
+
 		if (this._rbrace)
 			return this._rbrace;
 
@@ -1511,6 +1524,7 @@ export class Rule extends AbstractRule
 		var rule = new Rule();
 
 		rule._tokens = tokens;
+		rule._children = tokens;
 		rule._hasError = true;
 		setRangeFromChildren(rule.range, tokens);
 
@@ -1591,19 +1605,27 @@ export class Rule extends AbstractRule
 
 	getFirstToken(): Tokenizer.Token
 	{
+		if (this._hasError && this._tokens && this._tokens.length > 0)
+			return this._tokens[0];
+
 		if (this._selectors)
 			return this._selectors.getFirstToken();
 		if (this._declarations)
 			return this._declarations.getFirstToken();
+
 		return null;
 	}
 
 	getLastToken(): Tokenizer.Token
 	{
+		if (this._hasError && this._tokens && this._tokens.length > 0)
+			return this._tokens[this._tokens.length - 1];
+
 		if (this._declarations)
 			return this._declarations.getLastToken();
 		if (this._selectors)
 			return this._selectors.getLastToken();
+
 		return null;
 	}
 
@@ -1774,6 +1796,7 @@ export class Selector extends ComponentValueList
 		var selector = new Selector(null);
 
 		selector._tokens = tokens;
+		selector._children = tokens;
 		selector._hasError = true;
 		setRangeFromChildren(selector.range, tokens);
 
@@ -2571,6 +2594,7 @@ export class DeclarationList extends ASTNodeList<Declaration>
 		var declarationList = new DeclarationList([]);
 
 		declarationList._tokens = tokens;
+		declarationList._children = tokens;
 		declarationList._hasError = true;
 		setRangeFromChildren(declarationList.range, tokens);
 
@@ -2629,6 +2653,9 @@ export class DeclarationList extends ASTNodeList<Declaration>
 
 	getFirstToken(): Tokenizer.Token
 	{
+		if (this._hasError && this._tokens && this._tokens.length > 0)
+			return this._tokens[0];
+
 		if (this._lbrace)
 			return this._lbrace;
 
@@ -2637,6 +2664,9 @@ export class DeclarationList extends ASTNodeList<Declaration>
 
 	getLastToken(): Tokenizer.Token
 	{
+		if (this._hasError && this._tokens && this._tokens.length > 0)
+			return this._tokens[this._tokens.length - 1];
+
 		if (this._rbrace)
 			return this._rbrace;
 
@@ -2749,11 +2779,17 @@ export class Declaration extends ASTNode
 			throw new Error('Unsupported constructor arguments');
 	}
 
-	static fromErrorTokens(tokens: Tokenizer.Token[]): Declaration
+	static fromErrorTokens(tokens: Tokenizer.Token[], name?: ComponentValueList, colon?: Tokenizer.Token): Declaration
 	{
-		var decl = new Declaration(null, null, null, null);
+		var decl = new Declaration(name || null, colon || null, null, null);
+
+		if (colon)
+			tokens.unshift(colon);
+		if (name)
+			Array.prototype.unshift.apply(tokens, name.getTokens());
 
 		decl._tokens = tokens;
+		decl._children = tokens;
 		decl._hasError = true;
 		setRangeFromChildren(decl.range, tokens);
 
@@ -3004,6 +3040,9 @@ export class Declaration extends ASTNode
 
 	getFirstToken(): Tokenizer.Token
 	{
+		if (this._hasError && this._tokens && this._tokens.length > 0)
+			return this._tokens[0];
+
 		if (this._lcomment)
 			return this._lcomment;
 
@@ -3031,6 +3070,9 @@ export class Declaration extends ASTNode
 
 	getLastToken(): Tokenizer.Token
 	{
+		if (this._hasError && this._tokens && this._tokens.length > 0)
+			return this._tokens[this._tokens.length - 1];
+
 		if (this._rcomment)
 			return this._rcomment;
 
@@ -3360,11 +3402,17 @@ export class AtRule extends AbstractRule implements IRulesContainer
 
 	getFirstToken(): Tokenizer.Token
 	{
+		if (this._hasError && this._tokens && this._tokens.length > 0)
+			return this._tokens[0];
+
 		return this._atKeyword;
 	}
 
 	getLastToken(): Tokenizer.Token
 	{
+		if (this._hasError && this._tokens && this._tokens.length > 0)
+			return this._tokens[this._tokens.length - 1];
+
 		if (this._semicolon)
 			return this._semicolon;
 

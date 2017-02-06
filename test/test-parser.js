@@ -473,5 +473,15 @@ describe('CSS-Parser', function()
 			rule.getPrelude().toString().should.eql('(display: table-cell) and (not ( display: list-item )) ');
 			rule.getRules().getLength().should.eql(1);
 		});
+
+		describe('parse sources with errors', function()
+		{
+			it('missing closing parenthesis', function()
+			{
+				var css = '33% {transform: rotateZ(5deg) translate(;}';
+				var ast = P.parse(css);
+				ast.toString().should.eql(css);
+			});
+		});
 	});
 });
