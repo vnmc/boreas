@@ -482,6 +482,40 @@ describe('CSS-Parser', function()
 				var ast = P.parse(css);
 				ast.toString().should.eql(css);
 			});
+
+			it('trailing exclamation mark in declaration value', function()
+			{
+				var css = 'h1 { color: salmon !; background-color: coral;}';
+				var ast = P.parse(css);
+
+				ast.toString().should.eql(css);
+
+				var rules = ast.getRules();
+				rules.getLength().should.eql(1);
+
+				var decls = rules[0].getDeclarations();
+				decls.getLength().should.eql(2);
+
+				decls[0].toString().should.eql('color: salmon !; ');
+				decls[1].toString().should.eql('background-color: coral;');
+			});
+
+			it('multiple trailing exclamation mark in declaration value', function()
+			{
+				var css = 'h1 { color: salmon !! !; background-color: coral;}';
+				var ast = P.parse(css);
+
+				ast.toString().should.eql(css);
+
+				var rules = ast.getRules();
+				rules.getLength().should.eql(1);
+
+				var decls = rules[0].getDeclarations();
+				decls.getLength().should.eql(2);
+
+				decls[0].toString().should.eql('color: salmon !! !; ');
+				decls[1].toString().should.eql('background-color: coral;');
+			});
 		});
 	});
 });

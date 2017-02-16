@@ -941,14 +941,18 @@ export class Parser
 					t = this.nextToken();
 
 					if (t.token === Tokenizer.EToken.IDENT && t.src.toLowerCase() === 'important')
+					{
 						values.push(new AST.ImportantComponentValue(prevToken, t));
+						t = this.nextToken();
+					}
+					else if (endTokens.indexOf(t.token) >= 0)
+						values.push(new AST.ComponentValue(prevToken));
 					else
 					{
 						values.push(new AST.ComponentValue(prevToken));
 						values.push(new AST.ComponentValue(t));
+						t = this.nextToken();
 					}
-
-					t = this.nextToken();
 				}
 				else
 				{
