@@ -38,6 +38,15 @@ class RangeAdapter
 
 		if (firstTrailing && firstTrailing.length > 0)
 			firstRange = firstTrailing[0].range;
+		else if (lenDeclarations === 0)
+		{
+			firstRange = {
+				startLine: lbrace.range.endLine,
+				startColumn: lbrace.range.endColumn,
+				endLine: 0,
+				endColumn: 0
+			};
+		}
 		else if (lenDeclarations > 0)
 		{
 			tokens = (<AST.Declaration> declarations[0]).getTokens();
@@ -56,6 +65,15 @@ class RangeAdapter
 		lastLeading = rbrace && rbrace.leadingTrivia;
 		if (lastLeading && lastLeading.length > 0)
 			lastRange = lastLeading[lastLeading.length - 1].range;
+		else if (lenDeclarations === 0)
+		{
+			lastRange = {
+				startLine: 0,
+				startColumn: 0,
+				endLine: rbrace.range.startLine,
+				endColumn: rbrace.range.startColumn
+			};
+		}
 		else if (lenDeclarations > 0)
 		{
 			tokens = (<AST.Declaration> declarations[lenDeclarations - 1]).getTokens();

@@ -28,7 +28,7 @@ export function toJSON(node: T.INode): any
 		if (ast instanceof AST.Selector)
 		{
 			return {
-				value: (<AST.Selector> ast).getText(),
+				text: (<AST.Selector> ast).getText(),
 				range: RangeAdapter.getRange(ast)
 			};
 		}
