@@ -1,6 +1,7 @@
 import T = require('./types');
 import AST = require('./ast');
 import Tokenizer = require('./tokenizer');
+import NodeNames = require('./nodenames');
 import CSSUtilities = require('./utilities');
 
 
@@ -192,7 +193,7 @@ export function getNoTriviaRange(start: T.INode, end: T.INode = start): T.ISourc
  */
 export function getRange(node: T.INode): T.ISourceRange
 {
-	var adapter = RangeAdapter[(<any> node.constructor).name];
+	var adapter = RangeAdapter[NodeNames.getNodeName(node)];
 	return adapter ?
 		adapter(node) :
 		(node instanceof AST.ASTNode) ? RangeAdapter.default(<AST.ASTNode> node) : node.range;

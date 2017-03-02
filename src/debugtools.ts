@@ -1,5 +1,6 @@
 import T = require('./types');
 import Tokenizer = require('./tokenizer');
+import NodeNames = require('./nodenames');
 
 
 var DEBUG = true;
@@ -105,7 +106,7 @@ export function printAST(node: T.INode, level: number = 0)
 	if (node instanceof Tokenizer.Token)
 		console.log(pad + 'Token: "' + node.toString() + '"', node.range);
 	else
-		console.log(pad + (<any> node.constructor).name, node.range);
+		console.log(pad + NodeNames.getNodeName(node), node.range);
 
 	var children = node.getChildren(),
 		len = children.length;
