@@ -14,10 +14,18 @@ This project comprises
 * AST traversal (tree walking).
 
 ## Installation
-TODO: npm
+To install _Boreas_, simply type
+
+```
+npm install boreas
+```
 
 
 ## Building
+You only need to build _Boreas_ if you want to change the code or if you
+got the package by cloning the git repository; i.e., if you're just planning
+to use it from the installed version, there is no need to build it.
+
 Build _Boreas_ by typing
 
 ```
