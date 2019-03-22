@@ -32,7 +32,7 @@ module.exports = function(grunt)
 		tslint: {
 			options: {
 				configuration: grunt.file.readJSON('tslint.json'),
-				rulesDirectory: 'tools/tslint-rules'
+				// rulesDirectory: 'tools/tslint-rules'
 			},
 			base: {
 				src: 'src/*.ts'

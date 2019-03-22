@@ -799,12 +799,7 @@ export class Tokenizer
 	{
 		return new Token(
 			token,
-			{
-				startLine: this._startLine,
-				startColumn: Math.max(0, this._startColumn),
-				endLine: this._line,
-				endColumn: Math.max(0, this._column)
-			},
+			new AST.SourceRange(this._startLine, Math.max(0, this._startColumn), this._line, Math.max(0, this._column)),
 			src || this._src.substring(this._startPos, this._pos),
 			value,
 			unit,
@@ -1220,13 +1215,13 @@ export class Tokenizer
 			s = c;
 			for (i = 0; i < 5; i++)
 			{
-				if (isHexDigit(this._src.charCodeAt(this._pos)))
+				if (isHexDigit(this._src.charCodeAt(this._pos + 1)))
 					s += this.nextChar();
 				else
 					break;
 			}
 
-			if (isWhiteSpace(this._src.charCodeAt(this._pos)))
+			if (isWhiteSpace(this._src.charCodeAt(this._pos + 1)))
 				s += this.nextChar();
 
 			/*

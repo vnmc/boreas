@@ -612,12 +612,7 @@ export class ASTNodeList<U extends T.INode> extends ASTNode
 		// construct the range to delete
 		firstRange = nodes[0].range;
 		lastRange = nodes[len - 1].range;
-		range = {
-			startLine: firstRange.startLine,
-			startColumn: firstRange.startColumn,
-			endLine: lastRange.endLine,
-			endColumn: lastRange.endColumn
-		};
+		range = new SourceRange(firstRange.startLine, firstRange.startColumn, lastRange.endLine, lastRange.endColumn);
 
 		// remove the nodes
 		nodes.splice(0, len);
@@ -1150,6 +1145,19 @@ export class RuleList extends ASTNodeList<AbstractRule>
 	private _rbrace: Tokenizer.Token;
 
 
+	static fromErrorTokens(tokens: Tokenizer.Token[]): RuleList
+	{
+		var ruleList = new RuleList([]);
+
+		ruleList._tokens = tokens;
+		ruleList._children = tokens;
+		ruleList._hasError = true;
+		setRangeFromChildren(ruleList.range, tokens);
+
+		return ruleList;
+	}
+
+
 	constructor(rules: AbstractRule[], lbrace?: Tokenizer.Token, rbrace?: Tokenizer.Token)
 	{
 		super(rules);
@@ -1176,17 +1184,6 @@ export class RuleList extends ASTNodeList<AbstractRule>
 		}
 	}
 
-	static fromErrorTokens(tokens: Tokenizer.Token[]): RuleList
-	{
-		var ruleList = new RuleList([]);
-
-		ruleList._tokens = tokens;
-		ruleList._children = tokens;
-		ruleList._hasError = true;
-		setRangeFromChildren(ruleList.range, tokens);
-
-		return ruleList;
-	}
 
 	getStartPosition(): IPosition
 	{
@@ -1488,6 +1485,19 @@ export class Rule extends AbstractRule
 	private _declarations: DeclarationList;
 
 
+	static fromErrorTokens(tokens: Tokenizer.Token[]): Rule
+	{
+		var rule = new Rule();
+
+		rule._tokens = tokens;
+		rule._children = tokens;
+		rule._hasError = true;
+		setRangeFromChildren(rule.range, tokens);
+
+		return rule;
+	}
+
+
 	constructor(selectors?: SelectorList, declarations?: DeclarationList)
 	{
 		var t: T.INode;
@@ -1517,18 +1527,6 @@ export class Rule extends AbstractRule
 			this.range.endLine = t.range.endLine;
 			this.range.endColumn = t.range.endColumn;
 		}
-	}
-
-	static fromErrorTokens(tokens: Tokenizer.Token[]): Rule
-	{
-		var rule = new Rule();
-
-		rule._tokens = tokens;
-		rule._children = tokens;
-		rule._hasError = true;
-		setRangeFromChildren(rule.range, tokens);
-
-		return rule;
 	}
 
 	setSelectors(selectors: SelectorList): void
@@ -1766,6 +1764,19 @@ export class Selector extends ComponentValueList
 	private _text: string = null;
 
 
+	static fromErrorTokens(tokens: Tokenizer.Token[]): Selector
+	{
+		var selector = new Selector(null);
+
+		selector._tokens = tokens;
+		selector._children = tokens;
+		selector._hasError = true;
+		setRangeFromChildren(selector.range, tokens);
+
+		return selector;
+	}
+
+
 	constructor(values: IComponentValue[], separator?: Tokenizer.Token);
 	constructor(selectorText: string);
 	constructor(...args: any[])
@@ -1789,18 +1800,6 @@ export class Selector extends ComponentValueList
 				this.range.endColumn = this._separator.range.endColumn;
 			}
 		}
-	}
-
-	static fromErrorTokens(tokens: Tokenizer.Token[]): Selector
-	{
-		var selector = new Selector(null);
-
-		selector._tokens = tokens;
-		selector._children = tokens;
-		selector._hasError = true;
-		setRangeFromChildren(selector.range, tokens);
-
-		return selector;
 	}
 
 	addSeparator(): void
@@ -2563,6 +2562,19 @@ export class DeclarationList extends ASTNodeList<Declaration>
 	private _rbrace: Tokenizer.Token;
 
 
+	static fromErrorTokens(tokens: Tokenizer.Token[]): DeclarationList
+	{
+		var declarationList = new DeclarationList([]);
+
+		declarationList._tokens = tokens;
+		declarationList._children = tokens;
+		declarationList._hasError = true;
+		setRangeFromChildren(declarationList.range, tokens);
+
+		return declarationList;
+	}
+
+
 	constructor(declarations: Declaration[], lbrace?: Tokenizer.Token, rbrace?: Tokenizer.Token)
 	{
 		super(declarations);
@@ -2587,18 +2599,6 @@ export class DeclarationList extends ASTNodeList<Declaration>
 			this.range.endLine = rbrace.range.endLine;
 			this.range.endColumn = rbrace.range.endColumn;
 		}
-	}
-
-	static fromErrorTokens(tokens: Tokenizer.Token[]): DeclarationList
-	{
-		var declarationList = new DeclarationList([]);
-
-		declarationList._tokens = tokens;
-		declarationList._children = tokens;
-		declarationList._hasError = true;
-		setRangeFromChildren(declarationList.range, tokens);
-
-		return declarationList;
 	}
 
 	insertDeclaration(declaration: Declaration, pos?: number): void
@@ -2735,6 +2735,24 @@ export class Declaration extends ASTNode
 	private _nameText: string = null;
 
 
+	static fromErrorTokens(tokens: Tokenizer.Token[], name?: ComponentValueList, colon?: Tokenizer.Token): Declaration
+	{
+		var decl = new Declaration(name || null, colon || null, null, null);
+
+		if (colon)
+			tokens.unshift(colon);
+		if (name)
+			Array.prototype.unshift.apply(tokens, name.getTokens());
+
+		decl._tokens = tokens;
+		decl._children = tokens;
+		decl._hasError = true;
+		setRangeFromChildren(decl.range, tokens);
+
+		return decl;
+	}
+
+
 	constructor(
 		name: ComponentValueList, colon: Tokenizer.Token, value: DeclarationValue, semicolon: Tokenizer.Token,
 		lcomment?: Tokenizer.Token, rcomment?: Tokenizer.Token);
@@ -2777,23 +2795,6 @@ export class Declaration extends ASTNode
 		}
 		else
 			throw new Error('Unsupported constructor arguments');
-	}
-
-	static fromErrorTokens(tokens: Tokenizer.Token[], name?: ComponentValueList, colon?: Tokenizer.Token): Declaration
-	{
-		var decl = new Declaration(name || null, colon || null, null, null);
-
-		if (colon)
-			tokens.unshift(colon);
-		if (name)
-			Array.prototype.unshift.apply(tokens, name.getTokens());
-
-		decl._tokens = tokens;
-		decl._children = tokens;
-		decl._hasError = true;
-		setRangeFromChildren(decl.range, tokens);
-
-		return decl;
 	}
 
 	setName(newName: string): void

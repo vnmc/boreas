@@ -29,6 +29,8 @@ function testFiles(testFnx)
 
     var invokeTest = function(file)
     {
+        console.log(file);
+
         var src = Fs.readFileSync(dir + Path.sep + file, 'utf8');
         var start = Date.now();
         var ast = new P.parse(src);
@@ -40,7 +42,7 @@ function testFiles(testFnx)
     for (var i = 0; i < len; i++)
     {
         var file = files[i];
-        it(file, invokeTest.bind(null, file));
+        it(file, invokeTest.bind(null, file)).timeout(20000);
     }
 }
 

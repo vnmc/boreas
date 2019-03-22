@@ -40,14 +40,7 @@ class RangeAdapter
 		if (firstTrailing && firstTrailing.length > 0)
 			firstRange = firstTrailing[0].range;
 		else if (lenDeclarations === 0)
-		{
-			firstRange = {
-				startLine: lbrace.range.endLine,
-				startColumn: lbrace.range.endColumn,
-				endLine: 0,
-				endColumn: 0
-			};
-		}
+			firstRange = new AST.SourceRange(lbrace.range.endLine, lbrace.range.endColumn, 0, 0);
 		else if (lenDeclarations > 0)
 		{
 			tokens = (<AST.Declaration> declarations[0]).getTokens();
@@ -67,14 +60,7 @@ class RangeAdapter
 		if (lastLeading && lastLeading.length > 0)
 			lastRange = lastLeading[lastLeading.length - 1].range;
 		else if (lenDeclarations === 0)
-		{
-			lastRange = {
-				startLine: 0,
-				startColumn: 0,
-				endLine: rbrace.range.startLine,
-				endColumn: rbrace.range.startColumn
-			};
-		}
+			lastRange = new AST.SourceRange(0, 0, rbrace.range.startLine, rbrace.range.startColumn);
 		else if (lenDeclarations > 0)
 		{
 			tokens = (<AST.Declaration> declarations[lenDeclarations - 1]).getTokens();
@@ -92,12 +78,7 @@ class RangeAdapter
 			}
 		}
 
-		return {
-			startLine: firstRange.startLine,
-			startColumn: firstRange.startColumn,
-			endLine: lastRange.endLine,
-			endColumn: lastRange.endColumn
-		};
+		return new AST.SourceRange(firstRange.startLine, firstRange.startColumn, lastRange.endLine, lastRange.endColumn);
 	}
 
 
@@ -143,12 +124,7 @@ export function getNoTriviaRange(start: T.INode, end: T.INode = start): T.ISourc
 	if (!firstToken && !lastToken)
 		return null;
 
-	range = {
-		startLine: start.range.startLine,
-		startColumn: start.range.startColumn,
-		endLine: end.range.endLine,
-		endColumn: end.range.endColumn
-	};
+	range = new AST.SourceRange(start.range.startLine, start.range.startColumn, end.range.endLine, end.range.endColumn);
 
 	if (firstToken)
 	{

@@ -9,14 +9,14 @@ describe('CSS-Tokenizer', function()
 	it('should tokenize identifiers', function()
 	{
 		var t = new Tokenizer('anidentifier ident1 ident-with-hyphens ident_with_underscores ident\\:with\\+escapes');
-		
+
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.IDENT);
 		token.src.should.eql('anidentifier');
 
 		token = t.nextToken();
 		token.token.should.eql(T.EToken.WHITESPACE);
-		
+
 		token = t.nextToken();
 		token.token.should.eql(T.EToken.IDENT);
 		token.src.should.eql('ident1');
@@ -386,6 +386,30 @@ describe('CSS-Tokenizer', function()
 		var token = t.nextToken();
 		token.token.should.eql(T.EToken.HASH);
 		token.src.should.eql('#f00\\9\\0\\;');
+	});
+
+	it('should tokenize escapes and following chars', function()
+	{
+		var t = new Tokenizer('23px\\0}');
+
+		var token = t.nextToken();
+		token.token.should.eql(T.EToken.DIMENSION);
+		token.src.should.eql('23px\\0');
+
+		token = t.nextToken();
+		token.token.should.equal(T.EToken.RBRACE);
+	});
+
+	it('should tokenize escape with whitespace and following chars', function()
+	{
+		var t = new Tokenizer('23px\\0 }');
+
+		var token = t.nextToken();
+		token.token.should.eql(T.EToken.DIMENSION);
+		token.src.should.eql('23px\\0 ');
+
+		token = t.nextToken();
+		token.token.should.equal(T.EToken.RBRACE);
 	});
 
 	it('should tokenize unicode ranges', function()

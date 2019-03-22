@@ -249,7 +249,8 @@ export class Parser
 			rules: AST.AbstractRule[] = [],
 			lbrace: Tokenizer.Token = null,
 			rbrace: Tokenizer.Token = null,
-			token: Tokenizer.EToken;
+			token: Tokenizer.EToken,
+			expectedTokens: Tokenizer.EToken[];
 
 		if (isBlock)
 		{
@@ -266,11 +267,31 @@ export class Parser
 
 			if (token === Tokenizer.EToken.EOF)
 				break;
-			else if (isBlock && token === Tokenizer.EToken.RBRACE)
+			else if (token === Tokenizer.EToken.RBRACE)
 			{
-				rbrace = this._currentToken;
-				this.nextToken();
-				break;
+				if (isBlock)
+				{
+					rbrace = this._currentToken;
+					this.nextToken();
+					break;
+				}
+				else
+				{
+					// RBRACE not in a block: this is an error
+					expectedTokens = [
+						Tokenizer.EToken.AT_KEYWORD,
+						Tokenizer.EToken.HASH,
+						Tokenizer.EToken.DELIM,
+						Tokenizer.EToken.IDENT,
+						Tokenizer.EToken.COLON
+					];
+
+					rules.push(AST.Rule.fromErrorTokens(this.cleanup(
+						{ expected: expectedTokens, parsedNodes: [] },
+						[],
+						expectedTokens
+					)));
+				}
 			}
 			else if (token === Tokenizer.EToken.AT_KEYWORD)
 			{
@@ -324,7 +345,6 @@ export class Parser
 		for ( ; ; )
 		{
 			token = this._currentToken.token;
-
 			if (token === Tokenizer.EToken.EOF)
 			{
 				// This is a parse error. Return nothing.
@@ -339,6 +359,13 @@ export class Parser
 				if (selectors.length > 0)
 					selectorList = new AST.SelectorList(selectors);
 				declarationList = this.parseDeclarationList();
+				break;
+			}
+
+			if (token === Tokenizer.EToken.RBRACE)
+			{
+				if (selectors.length > 0)
+					selectorList = new AST.SelectorList(selectors);
 				break;
 			}
 
@@ -757,7 +784,9 @@ export class Parser
 			pipe: Tokenizer.Token,
 			colon1: Tokenizer.Token,
 			colon2: Tokenizer.Token,
-			separator: Tokenizer.Token;
+			separator: Tokenizer.Token,
+			i: number,
+			errorTokens: Tokenizer.Token[];
 
 		try
 		{
@@ -874,6 +903,13 @@ export class Parser
 				{
 					values.push(new AST.SelectorCombinator(t));
 					t = this.nextToken();
+				}
+				else if (token === Tokenizer.EToken.RBRACE)
+				{
+					len = values.length;
+					for (i = 0; i < len; i++)
+						errorTokens = errorTokens ? errorTokens.concat(values[i].getTokens()) : values[i].getTokens();
+					return AST.Selector.fromErrorTokens(errorTokens);
 				}
 				else
 				{

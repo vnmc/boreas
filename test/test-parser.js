@@ -88,19 +88,19 @@ describe('CSS-Parser', function()
 			children.length.should.eql(5);
 
 			children[0].src.should.eql(' ');
-			children[0].range.should.eql({ startLine: 0, startColumn: 31, endLine: 0, endColumn: 32 });
+			children[0].range.should.eql(new AST.SourceRange(0, 31, 0, 32));
 
 			children[1].src.should.eql('/*y*/');
-			children[1].range.should.eql({ startLine: 0, startColumn: 32, endLine: 0, endColumn: 37 });
+			children[1].range.should.eql(new AST.SourceRange(0, 32, 0, 37));
 
 			children[2].src.should.eql('\n');
-			children[2].range.should.eql({ startLine: 0, startColumn: 37, endLine: 1, endColumn: 0 });
+			children[2].range.should.eql(new AST.SourceRange(0, 37, 1, 0));
 
 			children[3].src.should.eql('/*z*/');
-			children[3].range.should.eql({ startLine: 1, startColumn: 0, endLine: 1, endColumn: 5 });
+			children[3].range.should.eql(new AST.SourceRange(1, 0, 1, 5));
 
 			children[4].src.should.eql('\n');
-			children[4].range.should.eql({ startLine: 1, startColumn: 5, endLine: 2, endColumn: 0 });
+			children[4].range.should.eql(new AST.SourceRange(1, 5, 2, 0));
 		});
 	});
 
@@ -472,6 +472,25 @@ describe('CSS-Parser', function()
 			rule.should.be.an.instanceOf(AST.AtSupports);
 			rule.getPrelude().toString().should.eql('(display: table-cell) and (not ( display: list-item )) ');
 			rule.getRules().getLength().should.eql(1);
+		});
+
+		it('@supports with errors', function()
+		{
+			var css = '@supports (display:grid) { transform: scale(1); }\nh1 { color: red; }';
+			var ast = new P.Parser(css).parseStyleSheet();
+
+			ast.toString().should.eql(css);
+
+			ast.getRules().getLength().should.eql(2);
+
+			var rule = ast.getRules()[0];
+			rule.should.be.an.instanceOf(AST.AtSupports);
+			rule.getPrelude().toString().should.eql('(display:grid) ');
+			rule.getRules().getLength().should.eql(1);
+
+			rule = ast.getRules()[1];
+			rule.should.be.an.instanceOf(AST.Rule);
+			rule.toString().should.eql('h1 { color: red; }');
 		});
 
 		describe('parse sources with errors', function()

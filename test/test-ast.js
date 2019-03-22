@@ -253,12 +253,12 @@ describe('AST', function()
 			var selectors = rule.getSelectors();
 
 			selectors[0].getText().should.eql('code');
-			selectors[0].range.should.eql({ startLine: 3, startColumn: 1, endLine: 3, endColumn: 7 });
+			selectors[0].range.should.eql(new AST.SourceRange(3, 1, 3, 7));
 
 			selectors[1].getText().should.eql('pre>p::after');
-			selectors[1].range.should.eql({ startLine: 3, startColumn: 7, endLine: 3, endColumn: 20 });
+			selectors[1].range.should.eql(new AST.SourceRange(3, 7, 3, 20));
 
-			rule.getDeclarations().range.should.eql({ startLine: 3, startColumn: 20, endLine: 3, endColumn: 22 });
+			rule.getDeclarations().range.should.eql(new AST.SourceRange(3, 20, 3, 22));
 
 			Utils.checkRanges(ast);
 			Utils.checkRangeContents(ast);
@@ -279,8 +279,8 @@ describe('AST', function()
 			var decls = rules[1].getDeclarations();
 			decls.toString().should.eql('{ color: yellow;}');
 			decls.getLength().should.eql(1);
-			decls.range.should.eql({ startLine: 0, startColumn: 25, endLine: 0, endColumn: 42 });
-			decls[0].range.should.eql({ startLine: 0, startColumn: 27, endLine: 0, endColumn: 41 });
+			decls.range.should.eql(new AST.SourceRange(0, 25, 0, 42));
+			decls[0].range.should.eql(new AST.SourceRange(0, 27, 0, 41));
 
 			Utils.checkRanges(ast);
 			Utils.checkRangeContents(ast);
@@ -301,8 +301,8 @@ describe('AST', function()
 			var decls = rules[1].getDeclarations();
 			decls.toString().should.eql('{ /*xxx*/  color: yellow;}');
 			decls.getLength().should.eql(1);
-			decls.range.should.eql({ startLine: 0, startColumn: 25, endLine: 0, endColumn: 51 });
-			decls[0].range.should.eql({ startLine: 0, startColumn: 36, endLine: 0, endColumn: 50 });
+			decls.range.should.eql(new AST.SourceRange(0, 25, 0, 51));
+			decls[0].range.should.eql(new AST.SourceRange(0, 36, 0, 50));
 
 			Utils.checkRanges(ast);
 			Utils.checkRangeContents(ast);
@@ -365,29 +365,29 @@ describe('AST', function()
 			var decls = rules[1].getDeclarations();
 			decls.toString().should.eql('{ /*x*/ color: yellow; /* padding: 0;*/ /*y*/\n/*z*/}');
 			decls.getLength().should.eql(2);
-			decls.range.should.eql({ startLine: 0, startColumn: 25, endLine: 1, endColumn: 6 });
-			decls[0].range.should.eql({ startLine: 0, startColumn: 33, endLine: 0, endColumn: 48 });
-			decls[1].range.should.eql({ startLine: 0, startColumn: 48, endLine: 1, endColumn: 5 });
+			decls.range.should.eql(new AST.SourceRange(0, 25, 1, 6));
+			decls[0].range.should.eql(new AST.SourceRange(0, 33, 0, 48));
+			decls[1].range.should.eql(new AST.SourceRange(0, 48, 1, 5));
 
 			var comment = decls[1].getRComment();
 			comment.src.should.eql('*/');
 			comment.trailingTrivia.length.should.eql(4);
-			comment.range.should.eql({ startLine: 0, startColumn: 62, endLine: 1, endColumn: 5 });
+			comment.range.should.eql(new AST.SourceRange(0, 62, 1, 5));
 
 			var children = comment.getChildren();
 			children.length.should.eql(4);
 
 			children[0].src.should.eql(' ');
-			children[0].range.should.eql({ startLine: 0, startColumn: 64, endLine: 0, endColumn: 65 });
+			children[0].range.should.eql(new AST.SourceRange(0, 64, 0, 65));
 
 			children[1].src.should.eql('/*y*/');
-			children[1].range.should.eql({ startLine: 0, startColumn: 65, endLine: 0, endColumn: 70 });
+			children[1].range.should.eql(new AST.SourceRange(0, 65, 0, 70));
 
 			children[2].src.should.eql('\n');
-			children[2].range.should.eql({ startLine: 0, startColumn: 70, endLine: 1, endColumn: 0 });
+			children[2].range.should.eql(new AST.SourceRange(0, 70, 1, 0));
 
 			children[3].src.should.eql('/*z*/');
-			children[3].range.should.eql({ startLine: 1, startColumn: 0, endLine: 1, endColumn: 5 });
+			children[3].range.should.eql(new AST.SourceRange(1, 0, 1, 5));
 
 			Utils.checkRanges(ast);
 			Utils.checkRangeContents(ast);
