@@ -2,9 +2,9 @@
 // IMPORT MODULES
 // ==================================================================
 
-import T = require('./types');
-import AST = require('./ast');
-import Tokenizer = require('./tokenizer');
+import * as T from './types';
+import * as AST from './ast';
+import * as Tokenizer from './tokenizer';
 
 
 var _hasTrim = typeof String.prototype.trim === 'function';

@@ -1,5 +1,5 @@
-import T = require('./types');
-import Tokenizer = require('./tokenizer');
+import * as T from './types';
+import * as Tokenizer from './tokenizer';
 
 
 /**

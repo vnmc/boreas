@@ -2,8 +2,8 @@
 // IMPORT MODULES
 // ==================================================================
 
-import T = require('./types');
-import AST = require('./ast');
+import * as T from './types';
+import * as AST from './ast';
 
 
 // ==================================================================

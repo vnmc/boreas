@@ -1,6 +1,6 @@
-import T = require('./types');
-import Tokenizer = require('./tokenizer');
-import NodeNames = require('./nodenames');
+import * as T from './types';
+import * as Tokenizer from './tokenizer';
+import * as NodeNames from './nodenames';
 
 
 var DEBUG = true;

@@ -1,5 +1,5 @@
-import Tokenizer = require('./tokenizer');
-import AST = require('./ast');
+import * as Tokenizer from './tokenizer';
+import * as AST from './ast';
 
 
 // ==================================================================

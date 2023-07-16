@@ -1,8 +1,8 @@
-import T = require('./types');
-import AST = require('./ast');
-import Tokenizer = require('./tokenizer');
-import NodeNames = require('./nodenames');
-import CSSUtilities = require('./utilities');
+import * as T from './types';
+import * as AST from './ast';
+import * as Tokenizer from './tokenizer';
+import * as NodeNames from './nodenames';
+import * as CSSUtilities from './utilities';
 
 
 class RangeAdapter

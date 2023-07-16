@@ -2,10 +2,10 @@
 // IMPORT MODULES
 // ==================================================================
 
-import T = require('./types');
-import Tokenizer = require('./tokenizer');
-import Parser = require('./parser');
-import Utilities = require('./utilities');
+import * as T from './types';
+import * as Tokenizer from './tokenizer';
+import * as Parser from './parser';
+import * as Utilities from './utilities';
 
 
 // ==================================================================

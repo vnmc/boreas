@@ -2,11 +2,11 @@
 // IMPORT MODULES
 // ==================================================================
 
-import T = require('./types');
-import AST = require('./ast');
-import Tokenizer = require('./tokenizer');
-import Utilities = require('./utilities');
-import TriviaConverter = require('./trivia-converter');
+import * as T from './types';
+import * as AST from './ast';
+import * as Tokenizer from './tokenizer';
+import * as Utilities from './utilities';
+import * as TriviaConverter from './trivia-converter';
 
 
 // ==================================================================

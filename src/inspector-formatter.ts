@@ -1,6 +1,6 @@
-import T = require('./types');
-import AST = require('./ast');
-import RangeAdapter = require('./inspector-rangeadapter');
+import * as T from './types';
+import * as AST from './ast';
+import * as RangeAdapter from './inspector-rangeadapter';
 
 
 export function toJSON(node: T.INode): any

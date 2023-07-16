@@ -1,7 +1,7 @@
-import T = require('./types');
-import AST = require('./ast');
-import Tokenizer = require('./tokenizer');
-import Utilities = require('./utilities');
+import * as T from './types';
+import * as AST from './ast';
+import * as Tokenizer from './tokenizer';
+import * as Utilities from './utilities';
 
 
 export function beautify(node: T.INode)
