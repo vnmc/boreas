@@ -1,6 +1,6 @@
 {
   "name": "boreas",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A neat CSS parser written in TypeScript.",
   "dependencies": {},
   "devDependencies": {
